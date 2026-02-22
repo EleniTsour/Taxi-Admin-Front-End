@@ -143,11 +143,14 @@ function LabeledAutocomplete({ label, options, value, onChange }) {
         slotProps={{
           paper: { sx: { mt: 0.5 } },
         }}
-        renderOption={(props, option) => (
-          <li {...props} style={{ whiteSpace: "normal", alignItems: "flex-start" }}>
-            <span style={{ display: "block", lineHeight: 1.25 }}>{option}</span>
-          </li>
-        )}
+        renderOption={(props, option) => {
+          const { key, ...optionProps } = props;
+          return (
+            <li key={key} {...optionProps} style={{ whiteSpace: "normal", alignItems: "flex-start" }}>
+              <span style={{ display: "block", lineHeight: 1.25 }}>{option}</span>
+            </li>
+          );
+        }}
         renderInput={(params) => (
           <Tooltip title={full ? full : ""} placement="top" arrow disableHoverListener={!full}>
             <TextField
@@ -688,55 +691,75 @@ export default function SearchRidesPage() {
 
       <Section title="Filters">
         <Grid container spacing={1.25}>
-          <Grid size={{  xs: 6, sm: 4, md: 4, lg: 2 }}>
-            <LabeledTextField
-              label="From Date"
-              type="date"
-              value={filters.fromDate}
-              onChange={(e) => setFilters((f) => ({ ...f, fromDate: e.target.value }))}
-            />
+          <Grid size={{ xs: 12, sm: 4, md: 4, lg: 2 }} sx={{ display: "flex" }}>
+            <Box sx={{ width: { xs: "min(100%, 320px)", sm: "100%" } }}>
+              <LabeledTextField
+                label="From Date"
+                type="date"
+                value={filters.fromDate}
+                onChange={(e) => setFilters((f) => ({ ...f, fromDate: e.target.value }))}
+              />
+            </Box>
           </Grid>
 
-          <Grid size={{  xs: 6, sm: 4, md: 4, lg: 2 }}>
-            <LabeledTextField
-              label="To Date"
-              type="date"
-              value={filters.toDate}
-              onChange={(e) => setFilters((f) => ({ ...f, toDate: e.target.value }))}
-            />
+          <Grid size={{ xs: 12, sm: 4, md: 4, lg: 2 }} sx={{ display: "flex" }}>
+            <Box sx={{ width: { xs: "min(100%, 320px)", sm: "100%" } }}>
+              <LabeledTextField
+                label="To Date"
+                type="date"
+                value={filters.toDate}
+                onChange={(e) => setFilters((f) => ({ ...f, toDate: e.target.value }))}
+              />
+            </Box>
           </Grid>
 
-          <Grid size={{  xs: 6, sm: 4, md: 4, lg: 2 }}>
-            <LabeledAutocomplete
-              label="Tour Operator"
-              options={tourOperOptions}
-              value={filters.TOUR_OPER}
-              onChange={(v) => setFilters((f) => ({ ...f, TOUR_OPER: v }))}
-            />
+          <Grid size={{ xs: 12, sm: 4, md: 4, lg: 2 }} sx={{ display: "flex" }}>
+            <Box sx={{ width: { xs: "min(100%, 320px)", sm: "100%" } }}>
+              <LabeledAutocomplete
+                label="Tour Operator"
+                options={tourOperOptions}
+                value={filters.TOUR_OPER}
+                onChange={(v) => setFilters((f) => ({ ...f, TOUR_OPER: v }))}
+              />
+            </Box>
           </Grid>
 
-          <Grid size={{  xs: 12, sm: 12, md: 12, lg: 12 }}>
+          <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
             <Divider sx={{ my: 0.75 }} />
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="flex-end" flexWrap="wrap">
-              <Button variant="outlined" startIcon={<ClearIcon />} onClick={handleClear} sx={{ width: { xs: "100%", sm: "auto" } }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              justifyContent={{ xs: "flex-start", sm: "flex-end" }}
+              flexWrap="wrap"
+              useFlexGap
+              sx={{
+                "& .MuiButton-root": {
+                  width: "auto",
+                  minWidth: 0,
+                  whiteSpace: "nowrap",
+                  px: { xs: 1.25, sm: 1.75 },
+                },
+              }}
+            >
+              <Button size="small" variant="outlined" startIcon={<ClearIcon />} onClick={handleClear}>
                 Clear
               </Button>
-              <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={{ width: { xs: "100%", sm: "auto" } }}>
+              <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>
                 Print
               </Button>
-              <Button variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={() => handlePdfSingle()} sx={{ width: { xs: "100%", sm: "auto" } }}>
+              <Button size="small" variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={() => handlePdfSingle()}>
                 Print Selected PDF
               </Button>
-              <Button variant="outlined" startIcon={<EmailIcon />} onClick={() => handleEmailPdf()} sx={{ width: { xs: "100%", sm: "auto" } }}>
+              <Button size="small" variant="outlined" startIcon={<EmailIcon />} onClick={() => handleEmailPdf()}>
                 Email Selected PDF
               </Button>
-              <Button variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={handlePdfAll} sx={{ width: { xs: "100%", sm: "auto" } }}>
+              <Button size="small" variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={handlePdfAll}>
                 Print All PDFs
               </Button>
-              <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportExcel} sx={{ width: { xs: "100%", sm: "auto" } }}>
+              <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportExcel}>
                 Export Excel
               </Button>
-              <Button variant="contained" startIcon={<SearchIcon />} onClick={handleSearch} sx={{ width: { xs: "100%", sm: "auto" } }}>
+              <Button size="small" variant="contained" startIcon={<SearchIcon />} onClick={handleSearch}>
                 Search
               </Button>
             </Stack>

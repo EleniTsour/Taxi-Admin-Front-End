@@ -150,11 +150,14 @@ function LabeledAutocomplete({ label, options, value, onChange, required = false
         slotProps={{
           paper: { sx: { mt: 0.5 } },
         }}
-        renderOption={(props, option) => (
-          <li {...props} style={{ whiteSpace: "normal", alignItems: "flex-start" }}>
-            <span style={{ display: "block", lineHeight: 1.25 }}>{option}</span>
-          </li>
-        )}
+        renderOption={(props, option) => {
+          const { key, ...optionProps } = props;
+          return (
+            <li key={key} {...optionProps} style={{ whiteSpace: "normal", alignItems: "flex-start" }}>
+              <span style={{ display: "block", lineHeight: 1.25 }}>{option}</span>
+            </li>
+          );
+        }}
         renderInput={(params) => (
           <Tooltip title={full ? full : ""} placement="top" arrow disableHoverListener={!full}>
             <TextField
