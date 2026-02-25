@@ -36,7 +36,6 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
 import SearchIcon from "@mui/icons-material/Search";
-import PrintIcon from "@mui/icons-material/Print";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import EmailIcon from "@mui/icons-material/Email";
 import ClearIcon from "@mui/icons-material/Clear";
@@ -370,7 +369,8 @@ export default function SearchRidesPage() {
   const totals = useMemo(() => {
     const count = totalRows;
     const sum = rows.reduce((acc, r) => acc + Number(r.PRICE ?? 0), 0);
-    return { count, sum };
+    const sumFormatted = sum.toFixed(2);
+    return { count, sum, sumFormatted };
   }, [rows, totalRows]);
 
   const selectedRide = useMemo(() => {
@@ -641,10 +641,6 @@ export default function SearchRidesPage() {
     );
   }
 
-  function handlePrint() {
-    window.print();
-  }
-
   function requestDeleteRow(row) {
     setDeleteTarget(row);
   }
@@ -791,6 +787,8 @@ export default function SearchRidesPage() {
 
   function downloadXlsx(filename, rowsToExport) {
     const header = EXCEL_COLUMNS.map((c) => c.label);
+    const priceColumnIndex = EXCEL_COLUMNS.findIndex((c) => c.key === "PRICE");
+    const totalPrice = rowsToExport.reduce((acc, row) => acc + Number(row.PRICE ?? 0), 0);
     const dataRows = rowsToExport.map((row) => (
       EXCEL_COLUMNS.map((c) => (
         c.key === "THE_DATE"
@@ -798,8 +796,15 @@ export default function SearchRidesPage() {
           : String(row[c.key] ?? "")
       ))
     ));
+    const totalRow = new Array(EXCEL_COLUMNS.length).fill("");
+    if (priceColumnIndex > 0) {
+      totalRow[priceColumnIndex - 1] = "Total Price";
+    }
+    if (priceColumnIndex >= 0) {
+      totalRow[priceColumnIndex] = totalPrice.toFixed(2);
+    }
 
-    const sheet = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
+    const sheet = XLSX.utils.aoa_to_sheet([header, ...dataRows, [], totalRow]);
     sheet["!cols"] = EXCEL_COLUMNS.map((c) => ({ wch: Math.max(12, c.label.length + 2) }));
 
     const workbook = XLSX.utils.book_new();
@@ -817,6 +822,60 @@ export default function SearchRidesPage() {
     const datePart = new Date().toISOString().slice(0, 10);
     downloadXlsx(`rides_report_${datePart}_page_${page + 1}.xlsx`, rows);
     setInfoMsg(`Excel export generated for ${rows.length} ride(s) on this page.`);
+  }
+
+  function parseFilenameFromContentDisposition(value, fallback) {
+    const header = String(value ?? "");
+    const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match?.[1]) {
+      return decodeURIComponent(utf8Match[1].trim());
+    }
+    const basicMatch = header.match(/filename="?([^";]+)"?/i);
+    if (basicMatch?.[1]) {
+      return basicMatch[1].trim();
+    }
+    return fallback;
+  }
+
+  async function downloadBackupCsv(path, fallbackFilename, successLabel) {
+    setInfoMsg("");
+    try {
+      const res = await fetch(`${API_BASE}${path}`, { credentials: "include" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const detail = body?.detail || body?.error || `Backup request failed (${res.status})`;
+        throw new Error(detail);
+      }
+
+      const blob = await res.blob();
+      const filename = parseFilenameFromContentDisposition(
+        res.headers.get("content-disposition"),
+        fallbackFilename,
+      );
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+      setInfoMsg(`${successLabel} backup downloaded.`);
+    } catch (err) {
+      setInfoMsg(`Could not download ${successLabel.toLowerCase()} backup: ${err.message}`);
+    }
+  }
+
+  async function handleBackupData() {
+    const datePart = new Date().toISOString().slice(0, 10);
+    await downloadBackupCsv("/rides/backup.csv", `data_backup_${datePart}.csv`, "Data");
+  }
+
+  async function handleBackupPrices() {
+    const datePart = new Date().toISOString().slice(0, 10);
+    await downloadBackupCsv("/prices/backup.csv", `prices_backup_${datePart}.csv`, "Prices");
   }
 
   function renderSortableHeader(label, field, align = "left") {
@@ -949,6 +1008,7 @@ export default function SearchRidesPage() {
               display: "flex",
               gap: 1,
               justifyContent: { xs: "flex-start", sm: "flex-end" },
+              alignItems: "center",
               flexWrap: { xs: "nowrap", sm: "wrap" },
               width: { xs: "max-content", sm: "100%" },
               "& .MuiButton-root": {
@@ -963,9 +1023,6 @@ export default function SearchRidesPage() {
             <Button size="small" variant="outlined" startIcon={<ClearIcon />} onClick={handleClear}>
               Clear
             </Button>
-            <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>
-              Print
-            </Button>
             <Button size="small" variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={() => handlePdfSingle()}>
               Print Selected PDF
             </Button>
@@ -978,14 +1035,26 @@ export default function SearchRidesPage() {
             <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportExcel}>
               Export Excel
             </Button>
-            <Button size="small" variant="contained" startIcon={<SearchIcon />} onClick={handleSearch}>
+            <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackupData}>
+              Backup Data CSV
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackupPrices}>
+              Backup Prices CSV
+            </Button>
+            <Button
+              size="medium"
+              variant="contained"
+              startIcon={<SearchIcon />}
+              onClick={handleSearch}
+              sx={{ minHeight: 42, px: 2.25, fontSize: "0.95rem", fontWeight: 700 }}
+            >
               Search
             </Button>
           </Box>
         </Box>
       </Paper>
 
-      <Section title={`Results (Total Rows: ${totals.count} | This Page Total Price: €${totals.sum})`}>
+      <Section title={`Results (Total Rows: ${totals.count} | This Page Total Price: €${totals.sumFormatted})`}>
         <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           <Table size="small" sx={{ minWidth: 980 }}>
             <TableHead>

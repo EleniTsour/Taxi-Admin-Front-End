@@ -705,7 +705,13 @@ export default function NewRidePage() {
                 t.palette.mode === "dark" ? "rgba(163, 181, 204, 0.18)" : "rgba(172, 156, 136, 0.24)",
             }}
           >
-            <Stack direction={{ xs: "column", sm: "row" }} gap={1} justifyContent="flex-end" flexWrap="wrap">
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              gap={1}
+              justifyContent="flex-end"
+              alignItems={{ xs: "stretch", sm: "center" }}
+              flexWrap="wrap"
+            >
               <Button variant="outlined" startIcon={<ClearIcon />} onClick={handleClear} sx={{ width: { xs: "100%", sm: "auto" } }}>
                 Clear
               </Button>
@@ -724,7 +730,13 @@ export default function NewRidePage() {
                 variant="contained"
                 startIcon={<SaveIcon />}
                 disabled={isSaving}
-                sx={{ width: { xs: "100%", sm: "auto" } }}
+                sx={{
+                  width: { xs: "100%", sm: "auto" },
+                  minHeight: 46,
+                  px: 2.5,
+                  fontSize: "0.98rem",
+                  fontWeight: 700,
+                }}
               >
                 {isSaving ? "Saving..." : "Save"}
               </Button>

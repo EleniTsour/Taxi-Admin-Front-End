@@ -81,6 +81,25 @@ export default function App() {
     }
   }
 
+  async function handleChangePassword(currentPassword, newPassword) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { ok: false, error: body?.error || `Change password failed (${res.status})` };
+      }
+
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'Cannot reach backend.' };
+    }
+  }
+
   const theme = useMemo(
     () =>
       createTheme({
@@ -232,6 +251,7 @@ export default function App() {
                 mode={mode}
                 onToggleMode={() => setMode((m) => (m === 'light' ? 'dark' : 'light'))}
                 onLogout={handleLogout}
+                onChangePassword={handleChangePassword}
               />
             </ProtectedRoute>
           }

@@ -15,6 +15,12 @@ import {
   Toolbar,
   Typography,
   Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Alert,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import AddRoadIcon from '@mui/icons-material/AddRoad';
@@ -23,11 +29,19 @@ import LocalTaxiIcon from '@mui/icons-material/LocalTaxi';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LockResetIcon from '@mui/icons-material/LockReset';
 
 const drawerWidth = 248;
 
-export default function AppShell({ onLogout, mode, onToggleMode }) {
+export default function AppShell({ onLogout, mode, onToggleMode, onChangePassword }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordMsg, setPasswordMsg] = useState('');
+  const [passwordMsgType, setPasswordMsgType] = useState('error');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const location = useLocation();
 
   const title = useMemo(() => {
@@ -131,6 +145,66 @@ export default function AppShell({ onLogout, mode, onToggleMode }) {
     </Box>
   );
 
+  function openChangePassword() {
+    setPasswordMsg('');
+    setPasswordMsgType('error');
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordOpen(true);
+  }
+
+  function closeChangePassword() {
+    if (isChangingPassword) return;
+    setPasswordOpen(false);
+  }
+
+  async function submitChangePassword() {
+    setPasswordMsg('');
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordMsgType('error');
+      setPasswordMsg('All password fields are required.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordMsgType('error');
+      setPasswordMsg('New password must be at least 8 characters.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMsgType('error');
+      setPasswordMsg('New password and confirmation do not match.');
+      return;
+    }
+
+    if (typeof onChangePassword !== 'function') {
+      setPasswordMsgType('error');
+      setPasswordMsg('Change password is not available.');
+      return;
+    }
+
+    try {
+      setIsChangingPassword(true);
+      const result = await onChangePassword(currentPassword, newPassword);
+      if (!result?.ok) {
+        setPasswordMsgType('error');
+        setPasswordMsg(result?.error || 'Could not change password.');
+        return;
+      }
+
+      setPasswordMsgType('success');
+      setPasswordMsg('Password updated successfully.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  }
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <AppBar
@@ -160,6 +234,30 @@ export default function AppShell({ onLogout, mode, onToggleMode }) {
           <Typography variant="h6" fontWeight={700} noWrap sx={{ flexGrow: 1 }}>
             {title}
           </Typography>
+
+          <Button
+            color="inherit"
+            size="small"
+            variant="outlined"
+            startIcon={<LockResetIcon />}
+            onClick={openChangePassword}
+            sx={{
+              borderColor: 'divider',
+              display: { xs: 'none', sm: 'inline-flex' },
+            }}
+          >
+            Change Password
+          </Button>
+
+          <IconButton
+            color="inherit"
+            onClick={openChangePassword}
+            aria-label="Change password"
+            title="Change password"
+            sx={{ display: { xs: 'inline-flex', sm: 'none' } }}
+          >
+            <LockResetIcon />
+          </IconButton>
 
           <IconButton
             color="inherit"
@@ -209,6 +307,46 @@ export default function AppShell({ onLogout, mode, onToggleMode }) {
         <Toolbar />
         <Outlet />
       </Box>
+
+      <Dialog open={passwordOpen} onClose={closeChangePassword} fullWidth maxWidth="xs">
+        <DialogTitle>Change Password</DialogTitle>
+        <DialogContent sx={{ display: 'grid', gap: 1.25, pt: 1 }}>
+          {passwordMsg ? <Alert severity={passwordMsgType}>{passwordMsg}</Alert> : null}
+          <TextField
+            label="Current Password"
+            type="password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            disabled={isChangingPassword}
+          />
+          <TextField
+            label="New Password"
+            type="password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            disabled={isChangingPassword}
+            helperText="At least 8 characters"
+          />
+          <TextField
+            label="Confirm New Password"
+            type="password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            disabled={isChangingPassword}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeChangePassword} disabled={isChangingPassword}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={submitChangePassword} disabled={isChangingPassword}>
+            {isChangingPassword ? 'Saving...' : 'Update Password'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
