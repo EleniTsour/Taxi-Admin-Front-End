@@ -18,13 +18,41 @@ import {
   FormLabel,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import LocalTaxiIcon from "@mui/icons-material/LocalTaxi";
 import SaveIcon from "@mui/icons-material/Save";
 import ClearIcon from "@mui/icons-material/Clear";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import dayjs from "dayjs";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+function toApiDate(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return raw;
+
+  const european = raw.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
+  if (!european) return null;
+
+  const dd = Number(european[1]);
+  const mm = Number(european[2]);
+  const yyyy = Number(european[3]);
+  const date = new Date(Date.UTC(yyyy, mm - 1, dd));
+  const isValid = (
+    date.getUTCFullYear() === yyyy &&
+    date.getUTCMonth() === mm - 1 &&
+    date.getUTCDate() === dd
+  );
+  if (!isValid) return null;
+
+  return `${String(yyyy).padStart(4, "0")}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+}
 
 const TYPE_OPTIONS = ["ARRIVAL", "DEPARTURE", "TRANSFER", "TOUR", "TOUR + BETWEEN"]; // your real 4
 const EMPTY_FORM = {
@@ -46,6 +74,8 @@ const EMPTY_FORM = {
   TOUR_OPER: "",
   VCode: "",
   PRICE: "",
+  DRIVER: "",
+  DRIVER_PRICE: "",
 };
 
 // Wider dropdown list so long options are readable
@@ -125,6 +155,31 @@ function LabeledTextField({ label, helperText, InputProps, ...props }) {
   );
 }
 
+function LabeledDatePicker({ label, value, onChange }) {
+  return (
+    <FormControl fullWidth>
+      <FormLabel sx={{ fontSize: 12, mb: 0.5, color: "text.primary" }}>
+        {label}
+      </FormLabel>
+      <DatePicker
+        format="DD-MM-YYYY"
+        value={value ? dayjs(value) : null}
+        onChange={(newValue) => onChange(newValue && newValue.isValid() ? newValue.format("YYYY-MM-DD") : "")}
+        slotProps={{
+          textField: {
+            size: "small",
+            margin: "dense",
+            placeholder: label,
+            helperText: " ",
+            FormHelperTextProps: { sx: { m: 0, mt: 0.5, whiteSpace: "normal" } },
+            InputProps: { sx: { borderRadius: 1 } },
+          },
+        }}
+      />
+    </FormControl>
+  );
+}
+
 // Label always ABOVE + dropdown that shows FULL selected value under field + tooltip
 function LabeledAutocomplete({ label, options, value, onChange, required = false }) {
   const full = value || "";
@@ -195,8 +250,11 @@ export default function NewRidePage() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [pricesError, setPricesError] = useState("");
+  const [driverOptionsError, setDriverOptionsError] = useState("");
   const [priceRows, setPriceRows] = useState([]);
+  const [driverOptions, setDriverOptions] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [formResetKey, setFormResetKey] = useState(0);
 
   function setField(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -218,9 +276,11 @@ export default function NewRidePage() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadPricesTable() {
+    async function loadOptions() {
       try {
         setPricesError("");
+        setDriverOptionsError("");
+
         const res = await fetch(`${API_BASE}/prices`, { credentials: "include" });
         const body = await res.json().catch(() => []);
         if (!res.ok) {
@@ -235,9 +295,30 @@ export default function NewRidePage() {
         setPriceRows([]);
         setPricesError(`Could not load pricing options: ${err.message}`);
       }
+
+      try {
+        const res = await fetch(`${API_BASE}/rides/options`, { credentials: "include" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const detail = body?.detail || body?.error || `Could not load drivers (${res.status})`;
+          throw new Error(detail);
+        }
+
+        const rowsFromApi = Array.isArray(body?.drivers) ? body.drivers : [];
+        if (!isMounted) return;
+        setDriverOptions(
+          [...new Set(
+            rowsFromApi.map((d) => String(d ?? "").trim()).filter(Boolean),
+          )].sort((a, b) => a.localeCompare(b)),
+        );
+      } catch (err) {
+        if (!isMounted) return;
+        setDriverOptions([]);
+        setDriverOptionsError(`Could not load driver options: ${err.message}`);
+      }
     }
 
-    loadPricesTable();
+    loadOptions();
     return () => {
       isMounted = false;
     };
@@ -302,6 +383,12 @@ export default function NewRidePage() {
       return;
     }
 
+    const apiDate = toApiDate(form.THE_DATE);
+    if (!apiDate) {
+      setError("Date is invalid.");
+      return;
+    }
+
     try {
       setIsSaving(true);
 
@@ -311,8 +398,10 @@ export default function NewRidePage() {
         credentials: "include",
         body: JSON.stringify({
           ...form,
+          THE_DATE: apiDate,
           ADULT: normalizeDecimalForApi(form.ADULT),
           PRICE: normalizeDecimalForApi(form.PRICE),
+          DRIVER_PRICE: normalizeDecimalForApi(form.DRIVER_PRICE),
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -340,6 +429,7 @@ export default function NewRidePage() {
       }
 
       setForm(EMPTY_FORM);
+      setFormResetKey((k) => k + 1);
     } catch (err) {
       setError(`Could not save ride: ${err.message}`);
     } finally {
@@ -360,10 +450,12 @@ export default function NewRidePage() {
     setSuccess("");
     setError("");
     setForm(EMPTY_FORM);
+    setFormResetKey((k) => k + 1);
   }
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 0, sm: 1 }, py: 1 }}>
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 0, sm: 1 }, py: 1 }}>
       <Box sx={{ mb: 1.25 }}>
         <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
           <Stack direction="row" spacing={1} alignItems="center">
@@ -384,17 +476,17 @@ export default function NewRidePage() {
       {success ? <Alert severity="success" sx={{ mb: 1.25 }}>{success}</Alert> : null}
       {error ? <Alert severity="error" sx={{ mb: 1.25 }}>{error}</Alert> : null}
       {pricesError ? <Alert severity="warning" sx={{ mb: 1.25 }}>{pricesError}</Alert> : null}
+      {driverOptionsError ? <Alert severity="warning" sx={{ mb: 1.25 }}>{driverOptionsError}</Alert> : null}
 
-      <Box component="form" onSubmit={handleSubmit}>
+      <Box key={formResetKey} component="form" onSubmit={handleSubmit}>
         <Stack spacing={1.25}>
           <Section title="Schedule">
             <Grid container spacing={1.25}>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                <LabeledTextField
+                <LabeledDatePicker
                   label="Date"
-                  type="date"
                   value={form.THE_DATE}
-                  onChange={(e) => setField("THE_DATE", e.target.value)}
+                  onChange={(v) => setField("THE_DATE", v)}
                 />
               </Grid>
 
@@ -575,6 +667,31 @@ export default function NewRidePage() {
             </Grid>
           </Section>
 
+          <Section title="Driver">
+            <Grid container spacing={1.25}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                <LabeledAutocomplete
+                  label="Driver"
+                  options={driverOptions}
+                  value={form.DRIVER}
+                  onChange={(v) => setField("DRIVER", v)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                <LabeledTextField
+                  label="Driver Price"
+                  value={form.DRIVER_PRICE}
+                  onChange={(e) => setDecimalField("DRIVER_PRICE", e.target.value)}
+                  inputMode="decimal"
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">€</InputAdornment>,
+                  }}
+                />
+              </Grid>
+            </Grid>
+          </Section>
+
           {/* Flat action bar */}
           <Paper
             variant="outlined"
@@ -618,7 +735,8 @@ export default function NewRidePage() {
           </Paper>
         </Stack>
       </Box>
-    </Box>
+      </Box>
+    </LocalizationProvider>
   );
 }
 

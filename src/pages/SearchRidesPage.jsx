@@ -23,16 +23,76 @@ import {
   FormControl,
   FormLabel,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import dayjs from "dayjs";
 import SearchIcon from "@mui/icons-material/Search";
 import PrintIcon from "@mui/icons-material/Print";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import EmailIcon from "@mui/icons-material/Email";
 import ClearIcon from "@mui/icons-material/Clear";
 import DownloadIcon from "@mui/icons-material/Download";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+function toDisplayDate(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  const european = raw.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
+  if (european) return `${european[1]}-${european[2]}-${european[3]}`;
+
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}-${iso[2]}-${iso[1]}`;
+
+  return raw;
+}
+
+function toApiDate(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return raw;
+
+  const european = raw.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
+  if (!european) return null;
+
+  const dd = Number(european[1]);
+  const mm = Number(european[2]);
+  const yyyy = Number(european[3]);
+  const date = new Date(Date.UTC(yyyy, mm - 1, dd));
+  const isValid = (
+    date.getUTCFullYear() === yyyy &&
+    date.getUTCMonth() === mm - 1 &&
+    date.getUTCDate() === dd
+  );
+  if (!isValid) return null;
+
+  return `${String(yyyy).padStart(4, "0")}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+}
+
+function toDateInputValue(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  const european = raw.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
+  if (european) return `${european[3]}-${european[2]}-${european[1]}`;
+
+  return "";
+}
 
 const EXCEL_COLUMNS = [
   { key: "A/A", label: "A/A" },
@@ -55,6 +115,7 @@ const EXCEL_COLUMNS = [
   { key: "TOUR_OPER", label: "Tour Operator" },
   { key: "PRICE", label: "Price" },
   { key: "DRIVER", label: "Driver" },
+  { key: "DRIVER_PRICE", label: "Driver Price" },
 ];
 
 // Wider dropdown list so long values are readable
@@ -124,6 +185,32 @@ function LabeledTextField({ label, helperText, ...props }) {
   );
 }
 
+function LabeledDatePicker({ label, value, onChange }) {
+  const isoValue = toDateInputValue(value);
+  return (
+    <FormControl fullWidth>
+      <FormLabel sx={{ fontSize: 12, mb: 0.5, color: "text.primary" }}>
+        {label}
+      </FormLabel>
+      <DatePicker
+        format="DD-MM-YYYY"
+        value={isoValue ? dayjs(isoValue) : null}
+        onChange={(newValue) => onChange(newValue && newValue.isValid() ? newValue.format("YYYY-MM-DD") : "")}
+        slotProps={{
+          textField: {
+            size: "small",
+            margin: "dense",
+            placeholder: label,
+            helperText: " ",
+            FormHelperTextProps: { sx: { m: 0, mt: 0.5, whiteSpace: "normal" } },
+            InputProps: { sx: { borderRadius: 1 } },
+          },
+        }}
+      />
+    </FormControl>
+  );
+}
+
 // Label always ABOVE + dropdown showing full selected value under field + tooltip
 function LabeledAutocomplete({ label, options, value, onChange }) {
   const full = value || "";
@@ -185,6 +272,7 @@ export default function SearchRidesPage() {
     fromDate: "",
     toDate: "",
     TOUR_OPER: "",
+    DRIVER: "",
   });
 
   const [rows, setRows] = useState([]);
@@ -195,15 +283,19 @@ export default function SearchRidesPage() {
   const [editingAA, setEditingAA] = useState(null);
   const [editDraft, setEditDraft] = useState(null);
   const [isSavingRow, setIsSavingRow] = useState(false);
+  const [isDeletingRow, setIsDeletingRow] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [infoMsg, setInfoMsg] = useState("");
   const [optionsError, setOptionsError] = useState("");
   const [tourOperOptions, setTourOperOptions] = useState([]);
+  const [driverOptions, setDriverOptions] = useState([]);
   const [destinationOptions, setDestinationOptions] = useState([]);
   const [sort, setSort] = useState({ by: "THE_DATE", dir: "desc" });
   const [activeFilters, setActiveFilters] = useState({
     fromDate: "",
     toDate: "",
     TOUR_OPER: "",
+    DRIVER: "",
   });
   const [activeSort, setActiveSort] = useState({ by: "THE_DATE", dir: "desc" });
   const [selectedAA, setSelectedAA] = useState(null);
@@ -211,9 +303,11 @@ export default function SearchRidesPage() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadTourOperatorOptions() {
+    async function loadFilterOptions() {
+      const errors = [];
+      setOptionsError("");
+
       try {
-        setOptionsError("");
         const res = await fetch(`${API_BASE}/prices`, { credentials: "include" });
         const body = await res.json().catch(() => []);
         if (!res.ok) {
@@ -240,11 +334,33 @@ export default function SearchRidesPage() {
         if (!isMounted) return;
         setTourOperOptions([]);
         setDestinationOptions([]);
-        setOptionsError(`Could not load Tour Operator options: ${err.message}`);
+        errors.push(`Tour Operator options: ${err.message}`);
       }
+
+      try {
+        const res = await fetch(`${API_BASE}/rides/options`, { credentials: "include" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const detail = body?.detail || body?.error || `Could not load drivers (${res.status})`;
+          throw new Error(detail);
+        }
+
+        const nextDrivers = Array.isArray(body?.drivers)
+          ? body.drivers.map((d) => String(d ?? "").trim()).filter(Boolean)
+          : [];
+        if (!isMounted) return;
+        setDriverOptions([...new Set(nextDrivers)].sort((a, b) => a.localeCompare(b)));
+      } catch (err) {
+        if (!isMounted) return;
+        setDriverOptions([]);
+        errors.push(`Driver options: ${err.message}`);
+      }
+
+      if (!isMounted) return;
+      setOptionsError(errors.join(" | "));
     }
 
-    loadTourOperatorOptions();
+    loadFilterOptions();
     return () => {
       isMounted = false;
     };
@@ -263,10 +379,22 @@ export default function SearchRidesPage() {
   }, [rows, selectedAA]);
 
   async function fetchRides(nextPage, nextPageSize, filtersForQuery, sortForQuery) {
+    const fromApi = filtersForQuery.fromDate ? toApiDate(filtersForQuery.fromDate) : "";
+    const toApi = filtersForQuery.toDate ? toApiDate(filtersForQuery.toDate) : "";
+    if (filtersForQuery.fromDate && !fromApi) {
+      setInfoMsg("From Date is invalid.");
+      return;
+    }
+    if (filtersForQuery.toDate && !toApi) {
+      setInfoMsg("To Date is invalid.");
+      return;
+    }
+
     const params = new URLSearchParams();
-    if (filtersForQuery.fromDate) params.set("from", filtersForQuery.fromDate);
-    if (filtersForQuery.toDate) params.set("to", filtersForQuery.toDate);
+    if (fromApi) params.set("from", fromApi);
+    if (toApi) params.set("to", toApi);
     if (filtersForQuery.TOUR_OPER) params.set("tour_oper", filtersForQuery.TOUR_OPER);
+    if (filtersForQuery.DRIVER) params.set("driver", filtersForQuery.DRIVER);
     params.set("sortBy", sortForQuery.by);
     params.set("sortDir", sortForQuery.dir);
     params.set("page", String(nextPage + 1));
@@ -301,6 +429,15 @@ export default function SearchRidesPage() {
 
   async function handleSearch() {
     setInfoMsg("");
+    if (filters.fromDate && !toApiDate(filters.fromDate)) {
+      setInfoMsg("From Date is invalid.");
+      return;
+    }
+    if (filters.toDate && !toApiDate(filters.toDate)) {
+      setInfoMsg("To Date is invalid.");
+      return;
+    }
+
     setSelectedAA(null);
     setPage(0);
     setActiveFilters(filters);
@@ -343,7 +480,7 @@ export default function SearchRidesPage() {
     setSelectedAA(null);
     setEditingAA(null);
     setEditDraft(null);
-    const clearedFilters = { fromDate: "", toDate: "", TOUR_OPER: "" };
+    const clearedFilters = { fromDate: "", toDate: "", TOUR_OPER: "", DRIVER: "" };
     const defaultSort = { by: "THE_DATE", dir: "desc" };
     setActiveFilters(clearedFilters);
     setFilters(clearedFilters);
@@ -353,7 +490,7 @@ export default function SearchRidesPage() {
 
   function startEdit(row) {
     setEditingAA(row["A/A"]);
-    setEditDraft({ ...row });
+    setEditDraft({ ...row, THE_DATE: toDateInputValue(row.THE_DATE) });
   }
 
   function cancelEdit() {
@@ -362,7 +499,7 @@ export default function SearchRidesPage() {
   }
 
   function updateDraftField(key, value) {
-    if ((key === "ADULT" || key === "PRICE")) {
+    if ((key === "ADULT" || key === "PRICE" || key === "DRIVER_PRICE")) {
       const normalized = String(value ?? "").replace(/\s/g, "");
       if (!/^\d*(?:[.,]\d*)?$/.test(normalized)) return;
       setEditDraft((prev) => ({ ...(prev ?? {}), [key]: normalized }));
@@ -370,15 +507,6 @@ export default function SearchRidesPage() {
     }
 
     setEditDraft((prev) => ({ ...(prev ?? {}), [key]: value }));
-  }
-
-  function toDateInputValue(value) {
-    const raw = String(value ?? "");
-    if (!raw) return "";
-    const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (m) return m[1];
-    const d = new Date(raw);
-    return Number.isNaN(d.getTime()) ? raw : d.toISOString().slice(0, 10);
   }
 
   function toTimeInputValue(value) {
@@ -396,6 +524,13 @@ export default function SearchRidesPage() {
     try {
       const payload = { ...editDraft };
       delete payload["A/A"];
+      if (payload.THE_DATE) {
+        const apiDate = toApiDate(payload.THE_DATE);
+        if (!apiDate) {
+          throw new Error("Date is invalid.");
+        }
+        payload.THE_DATE = apiDate;
+      }
 
       const res = await fetch(`${API_BASE}/rides/${encodeURIComponent(rowId)}`, {
         method: "PUT",
@@ -429,7 +564,7 @@ export default function SearchRidesPage() {
     if (!isEditing) {
       return (
         <TableCell align={align} sx={extraSx}>
-          {row[key]}
+          {key === "THE_DATE" ? toDisplayDate(row[key]) : row[key]}
         </TableCell>
       );
     }
@@ -437,12 +572,16 @@ export default function SearchRidesPage() {
     if (key === "THE_DATE") {
       return (
         <TableCell align={align} sx={extraSx}>
-          <TextField
-            size="small"
-            type="date"
-            value={toDateInputValue(editDraft?.[key])}
-            onChange={(e) => updateDraftField(key, e.target.value)}
-            sx={{ minWidth: 140 }}
+          <DatePicker
+            format="DD-MM-YYYY"
+            value={toDateInputValue(editDraft?.[key]) ? dayjs(toDateInputValue(editDraft?.[key])) : null}
+            onChange={(newValue) => updateDraftField(key, newValue && newValue.isValid() ? newValue.format("YYYY-MM-DD") : "")}
+            slotProps={{
+              textField: {
+                size: "small",
+                sx: { minWidth: 140 },
+              },
+            }}
           />
         </TableCell>
       );
@@ -494,7 +633,7 @@ export default function SearchRidesPage() {
           size="small"
           value={editDraft?.[key] ?? ""}
           onChange={(e) => updateDraftField(key, e.target.value)}
-          inputMode={key === "ADULT" || key === "PRICE" ? "decimal" : undefined}
+          inputMode={key === "ADULT" || key === "PRICE" || key === "DRIVER_PRICE" ? "decimal" : undefined}
           sx={{ minWidth: 96 }}
         />
       </TableCell>
@@ -503,6 +642,58 @@ export default function SearchRidesPage() {
 
   function handlePrint() {
     window.print();
+  }
+
+  function requestDeleteRow(row) {
+    setDeleteTarget(row);
+  }
+
+  function closeDeleteDialog() {
+    if (isDeletingRow) return;
+    setDeleteTarget(null);
+  }
+
+  async function confirmDeleteRow() {
+    if (!deleteTarget) return;
+
+    const rowId = deleteTarget["A/A"];
+    setInfoMsg("");
+    setIsDeletingRow(true);
+    try {
+      const res = await fetch(`${API_BASE}/rides/${encodeURIComponent(rowId)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = body?.detail || body?.error || `Delete failed (${res.status})`;
+        throw new Error(detail);
+      }
+
+      setDeleteTarget(null);
+      const wasEditingDeleted = editingAA === rowId;
+      setEditingAA((prev) => (prev === rowId ? null : prev));
+      if (wasEditingDeleted) {
+        setEditDraft(null);
+      }
+      setSelectedAA((prev) => (prev === rowId ? null : prev));
+
+      const nextTotal = Math.max(0, totalRows - 1);
+      if (rows.length === 1 && page > 0 && nextTotal > 0) {
+        const nextPage = page - 1;
+        setPage(nextPage);
+        await fetchRides(nextPage, pageSize, activeFilters, activeSort);
+      } else {
+        setRows((prev) => prev.filter((r) => r["A/A"] !== rowId));
+        setTotalRows(nextTotal);
+      }
+
+      setInfoMsg(`Ride A/A ${rowId} deleted.`);
+    } catch (err) {
+      setInfoMsg(`Could not delete ride: ${err.message}`);
+    } finally {
+      setIsDeletingRow(false);
+    }
   }
 
   async function openPdfResponse(res) {
@@ -607,7 +798,11 @@ export default function SearchRidesPage() {
   function buildCsv(rowsToExport) {
     const header = EXCEL_COLUMNS.map((c) => csvCell(c.label)).join(",");
     const lines = rowsToExport.map((row) =>
-      EXCEL_COLUMNS.map((c) => csvCell(row[c.key])).join(","),
+      EXCEL_COLUMNS.map((c) => (
+        c.key === "THE_DATE"
+          ? csvCell(toDisplayDate(row[c.key]))
+          : csvCell(row[c.key])
+      )).join(","),
     );
     return [header, ...lines].join("\r\n");
   }
@@ -658,7 +853,8 @@ export default function SearchRidesPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 1250, mx: "auto", px: { xs: 0, sm: 1 }, py: 1 }}>
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Box sx={{ maxWidth: 1250, mx: "auto", px: { xs: 0, sm: 1 }, py: 1 }}>
       <Paper
         variant="outlined"
         sx={{
@@ -679,7 +875,7 @@ export default function SearchRidesPage() {
               Search Rides
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Filter by date range and operator.
+              Filter by date range, operator and driver.
             </Typography>
           </Stack>
           <Chip label="Reporting Mode" size="small" color="secondary" />
@@ -693,22 +889,20 @@ export default function SearchRidesPage() {
         <Grid container spacing={1.25}>
           <Grid size={{ xs: 12, sm: 4, md: 4, lg: 2 }} sx={{ display: "flex" }}>
             <Box sx={{ width: { xs: "min(100%, 320px)", sm: "100%" } }}>
-              <LabeledTextField
+              <LabeledDatePicker
                 label="From Date"
-                type="date"
                 value={filters.fromDate}
-                onChange={(e) => setFilters((f) => ({ ...f, fromDate: e.target.value }))}
+                onChange={(v) => setFilters((f) => ({ ...f, fromDate: v }))}
               />
             </Box>
           </Grid>
 
           <Grid size={{ xs: 12, sm: 4, md: 4, lg: 2 }} sx={{ display: "flex" }}>
             <Box sx={{ width: { xs: "min(100%, 320px)", sm: "100%" } }}>
-              <LabeledTextField
+              <LabeledDatePicker
                 label="To Date"
-                type="date"
                 value={filters.toDate}
-                onChange={(e) => setFilters((f) => ({ ...f, toDate: e.target.value }))}
+                onChange={(v) => setFilters((f) => ({ ...f, toDate: v }))}
               />
             </Box>
           </Grid>
@@ -724,50 +918,85 @@ export default function SearchRidesPage() {
             </Box>
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
-            <Divider sx={{ my: 0.75 }} />
-            <Stack
-              direction="row"
-              spacing={1}
-              justifyContent={{ xs: "flex-start", sm: "flex-end" }}
-              flexWrap="wrap"
-              useFlexGap
-              sx={{
-                "& .MuiButton-root": {
-                  width: "auto",
-                  minWidth: 0,
-                  whiteSpace: "nowrap",
-                  px: { xs: 1.25, sm: 1.75 },
-                },
-              }}
-            >
-              <Button size="small" variant="outlined" startIcon={<ClearIcon />} onClick={handleClear}>
-                Clear
-              </Button>
-              <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>
-                Print
-              </Button>
-              <Button size="small" variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={() => handlePdfSingle()}>
-                Print Selected PDF
-              </Button>
-              <Button size="small" variant="outlined" startIcon={<EmailIcon />} onClick={() => handleEmailPdf()}>
-                Email Selected PDF
-              </Button>
-              <Button size="small" variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={handlePdfAll}>
-                Print All PDFs
-              </Button>
-              <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportExcel}>
-                Export Excel
-              </Button>
-              <Button size="small" variant="contained" startIcon={<SearchIcon />} onClick={handleSearch}>
-                Search
-              </Button>
-            </Stack>
+          <Grid size={{ xs: 12, sm: 4, md: 4, lg: 2 }} sx={{ display: "flex" }}>
+            <Box sx={{ width: { xs: "min(100%, 320px)", sm: "100%" } }}>
+              <LabeledAutocomplete
+                label="Driver"
+                options={driverOptions}
+                value={filters.DRIVER}
+                onChange={(v) => setFilters((f) => ({ ...f, DRIVER: v }))}
+              />
+            </Box>
           </Grid>
+
         </Grid>
       </Section>
 
-      <Box sx={{ height: 12 }} />
+      <Paper
+        variant="outlined"
+        sx={{
+          position: "sticky",
+          top: { xs: 64, sm: 72 },
+          zIndex: (t) => t.zIndex.appBar - 1,
+          mt: 1,
+          mb: 1.25,
+          p: 0.75,
+          borderRadius: 1,
+          borderColor: (t) =>
+            t.palette.mode === "dark" ? "rgba(163, 181, 204, 0.18)" : "rgba(172, 156, 136, 0.24)",
+          bgcolor: (t) => (t.palette.mode === "dark" ? t.palette.background.default : "#ffffff"),
+        }}
+      >
+        <Box
+          sx={{
+            maxWidth: "100%",
+            overflowX: { xs: "auto", sm: "visible" },
+            overflowY: "hidden",
+            WebkitOverflowScrolling: "touch",
+            touchAction: "pan-x pan-y",
+            pb: { xs: 0.25, sm: 0 },
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              justifyContent: { xs: "flex-start", sm: "flex-end" },
+              flexWrap: { xs: "nowrap", sm: "wrap" },
+              width: { xs: "max-content", sm: "100%" },
+              "& .MuiButton-root": {
+                width: "auto",
+                minWidth: 0,
+                whiteSpace: "nowrap",
+                px: { xs: 1.25, sm: 1.75 },
+                flex: "0 0 auto",
+              },
+            }}
+          >
+            <Button size="small" variant="outlined" startIcon={<ClearIcon />} onClick={handleClear}>
+              Clear
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>
+              Print
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={() => handlePdfSingle()}>
+              Print Selected PDF
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<EmailIcon />} onClick={() => handleEmailPdf()}>
+              Email Selected PDF
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={handlePdfAll}>
+              Print All PDFs
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportExcel}>
+              Export Excel
+            </Button>
+            <Button size="small" variant="contained" startIcon={<SearchIcon />} onClick={handleSearch}>
+              Search
+            </Button>
+          </Box>
+        </Box>
+      </Paper>
 
       <Section title={`Results (Total Rows: ${totals.count} | This Page Total Price: €${totals.sum})`}>
         <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -794,8 +1023,10 @@ export default function SearchRidesPage() {
                 {renderSortableHeader("Tour Operator", "TOUR_OPER")}
                 {renderSortableHeader("Price", "PRICE", "right")}
                 {renderSortableHeader("Driver", "DRIVER")}
+                {renderSortableHeader("Driver Price", "DRIVER_PRICE", "right")}
                 <TableCell align="center">PDF</TableCell>
                 <TableCell align="center">Edit</TableCell>
+                <TableCell align="center">Delete</TableCell>
               </TableRow>
             </TableHead>
 
@@ -830,6 +1061,7 @@ export default function SearchRidesPage() {
                   {renderCell(r, "TOUR_OPER")}
                   {renderCell(r, "PRICE", "right")}
                   {renderCell(r, "DRIVER")}
+                  {renderCell(r, "DRIVER_PRICE", "right")}
                   <TableCell align="center">
                     <Button
                       size="small"
@@ -882,12 +1114,27 @@ export default function SearchRidesPage() {
                       </Button>
                     )}
                   </TableCell>
+                  <TableCell align="center">
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      startIcon={<DeleteOutlineIcon />}
+                      disabled={isDeletingRow}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestDeleteRow(r);
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
 
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={22} sx={{ color: "text.secondary" }}>
+                  <TableCell colSpan={24} sx={{ color: "text.secondary" }}>
                     {isLoading ? "Loading..." : "No results."}
                   </TableCell>
                 </TableRow>
@@ -907,6 +1154,25 @@ export default function SearchRidesPage() {
           sx={{ mt: 0.5 }}
         />
       </Section>
-    </Box>
+
+      <Dialog open={Boolean(deleteTarget)} onClose={closeDeleteDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete Ride</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete ride A/A {deleteTarget?.["A/A"] ?? "-"}?
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteDialog} disabled={isDeletingRow}>
+            Cancel
+          </Button>
+          <Button color="error" variant="contained" onClick={confirmDeleteRow} disabled={isDeletingRow}>
+            {isDeletingRow ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      </Box>
+    </LocalizationProvider>
   );
 }
