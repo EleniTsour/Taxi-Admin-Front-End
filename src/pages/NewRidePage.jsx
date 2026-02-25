@@ -375,11 +375,11 @@ export default function NewRidePage() {
     setSuccess("");
     setError("");
 
-    const required = ["THE_DATE", "TIME", "FROM", "TO"];
+    const required = ["THE_DATE", "FROM", "TO"];
     const missing = required.filter((k) => !String(form[k] ?? "").trim());
 
     if (missing.length) {
-      setError("Missing required fields: THE_DATE, TIME, FROM, TO.");
+      setError("Missing required fields: THE_DATE, FROM, TO.");
       return;
     }
 
