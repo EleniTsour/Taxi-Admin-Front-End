@@ -34,6 +34,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
+import * as XLSX from "xlsx";
 import SearchIcon from "@mui/icons-material/Search";
 import PrintIcon from "@mui/icons-material/Print";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
@@ -788,35 +789,22 @@ export default function SearchRidesPage() {
     }
   }
 
-  function csvCell(value) {
-    const safe = String(value ?? "")
-      .replace(/"/g, '""')
-      .replace(/\r?\n/g, " ");
-    return `"${safe}"`;
-  }
-
-  function buildCsv(rowsToExport) {
-    const header = EXCEL_COLUMNS.map((c) => csvCell(c.label)).join(",");
-    const lines = rowsToExport.map((row) =>
+  function downloadXlsx(filename, rowsToExport) {
+    const header = EXCEL_COLUMNS.map((c) => c.label);
+    const dataRows = rowsToExport.map((row) => (
       EXCEL_COLUMNS.map((c) => (
         c.key === "THE_DATE"
-          ? csvCell(toDisplayDate(row[c.key]))
-          : csvCell(row[c.key])
-      )).join(","),
-    );
-    return [header, ...lines].join("\r\n");
-  }
+          ? toDisplayDate(row[c.key])
+          : String(row[c.key] ?? "")
+      ))
+    ));
 
-  function downloadCsv(filename, csvText) {
-    const blob = new Blob(["\uFEFF", csvText], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    const sheet = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
+    sheet["!cols"] = EXCEL_COLUMNS.map((c) => ({ wch: Math.max(12, c.label.length + 2) }));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, "Rides");
+    XLSX.writeFile(workbook, filename);
   }
 
   function handleExportExcel() {
@@ -827,8 +815,7 @@ export default function SearchRidesPage() {
     }
 
     const datePart = new Date().toISOString().slice(0, 10);
-    const csv = buildCsv(rows);
-    downloadCsv(`rides_report_${datePart}_page_${page + 1}.csv`, csv);
+    downloadXlsx(`rides_report_${datePart}_page_${page + 1}.xlsx`, rows);
     setInfoMsg(`Excel export generated for ${rows.length} ride(s) on this page.`);
   }
 
