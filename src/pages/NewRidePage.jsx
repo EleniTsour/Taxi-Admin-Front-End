@@ -731,8 +731,8 @@ export default function NewRidePage() {
                 startIcon={<SaveIcon />}
                 disabled={isSaving}
                 sx={{
-                  width: { xs: "100%", sm: "auto" },
-                  minHeight: 46,
+                  width: { xs: "100%", sm: 140 },
+                  minHeight: 30,
                   px: 2.5,
                   fontSize: "0.98rem",
                   fontWeight: 700,

@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import AppShell from './shell/AppShell.jsx';
 import NewRidePage from './pages/NewRidePage.jsx';
 import SearchRidesPage from './pages/SearchRidesPage.jsx';
+import BackupsPage from './pages/BackupsPage.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -259,6 +260,7 @@ export default function App() {
           <Route index element={<Navigate to="/rides/new" replace />} />
           <Route path="rides/new" element={<NewRidePage />} />
           <Route path="rides/search" element={<SearchRidesPage />} />
+          <Route path="backups" element={<BackupsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to={isAuthed ? '/' : '/login'} replace />} />

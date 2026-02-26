@@ -824,60 +824,6 @@ export default function SearchRidesPage() {
     setInfoMsg(`Excel export generated for ${rows.length} ride(s) on this page.`);
   }
 
-  function parseFilenameFromContentDisposition(value, fallback) {
-    const header = String(value ?? "");
-    const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i);
-    if (utf8Match?.[1]) {
-      return decodeURIComponent(utf8Match[1].trim());
-    }
-    const basicMatch = header.match(/filename="?([^";]+)"?/i);
-    if (basicMatch?.[1]) {
-      return basicMatch[1].trim();
-    }
-    return fallback;
-  }
-
-  async function downloadBackupCsv(path, fallbackFilename, successLabel) {
-    setInfoMsg("");
-    try {
-      const res = await fetch(`${API_BASE}${path}`, { credentials: "include" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const detail = body?.detail || body?.error || `Backup request failed (${res.status})`;
-        throw new Error(detail);
-      }
-
-      const blob = await res.blob();
-      const filename = parseFilenameFromContentDisposition(
-        res.headers.get("content-disposition"),
-        fallbackFilename,
-      );
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-
-      setInfoMsg(`${successLabel} backup downloaded.`);
-    } catch (err) {
-      setInfoMsg(`Could not download ${successLabel.toLowerCase()} backup: ${err.message}`);
-    }
-  }
-
-  async function handleBackupData() {
-    const datePart = new Date().toISOString().slice(0, 10);
-    await downloadBackupCsv("/rides/backup.csv", `data_backup_${datePart}.csv`, "Data");
-  }
-
-  async function handleBackupPrices() {
-    const datePart = new Date().toISOString().slice(0, 10);
-    await downloadBackupCsv("/prices/backup.csv", `prices_backup_${datePart}.csv`, "Prices");
-  }
-
   function renderSortableHeader(label, field, align = "left") {
     const sortable = ["A/A", "THE_DATE", "TIME"].includes(field);
     if (!sortable) {
@@ -1035,18 +981,12 @@ export default function SearchRidesPage() {
             <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportExcel}>
               Export Excel
             </Button>
-            <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackupData}>
-              Backup Data CSV
-            </Button>
-            <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleBackupPrices}>
-              Backup Prices CSV
-            </Button>
             <Button
               size="medium"
               variant="contained"
               startIcon={<SearchIcon />}
               onClick={handleSearch}
-              sx={{ minHeight: 42, px: 2.25, fontSize: "0.95rem", fontWeight: 700 }}
+              sx={{ width: { xs: "auto", sm: 142 }, minHeight: 28, px: 2.25, fontSize: "0.95rem", fontWeight: 700 }}
             >
               Search
             </Button>

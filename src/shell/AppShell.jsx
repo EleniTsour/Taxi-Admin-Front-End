@@ -30,6 +30,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LockResetIcon from '@mui/icons-material/LockReset';
+import ArchiveIcon from '@mui/icons-material/Archive';
 
 const drawerWidth = 248;
 
@@ -47,6 +48,7 @@ export default function AppShell({ onLogout, mode, onToggleMode, onChangePasswor
   const title = useMemo(() => {
     if (location.pathname.includes('/rides/new')) return 'New Ride';
     if (location.pathname.includes('/rides/search')) return 'Search Rides';
+    if (location.pathname.includes('/backups')) return 'Backups';
     return 'Taxi Admin';
   }, [location.pathname]);
 
@@ -125,6 +127,27 @@ export default function AppShell({ onLogout, mode, onToggleMode, onChangePasswor
             <SearchIcon />
           </ListItemIcon>
           <ListItemText primary="Search / Reports" />
+        </ListItemButton>
+
+        <ListItemButton
+          component={NavLink}
+          to="/backups"
+          onClick={() => setMobileOpen(false)}
+          sx={{
+            borderRadius: 0.5,
+            color: '#32251c',
+            '& .MuiListItemIcon-root': { color: '#32251c' },
+            '&.active': {
+              bgcolor: 'rgba(50,37,28,0.16)',
+              color: '#22180f',
+              '& .MuiListItemIcon-root': { color: '#22180f' },
+            },
+          }}
+        >
+          <ListItemIcon>
+            <ArchiveIcon />
+          </ListItemIcon>
+          <ListItemText primary="Backups" />
         </ListItemButton>
       </List>
 
