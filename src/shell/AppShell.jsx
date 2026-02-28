@@ -60,7 +60,7 @@ export default function AppShell({ onLogout, mode, onToggleMode, onChangePasswor
         color: '#32251c',
       }}
     >
-      <Box sx={{ p: 1.25, pt: 1.5 }}>
+      <Box sx={{ p: 1.25, pt: 1.5, mb: 1.5 }}>
         <Box
           component="img"
           src="/versa-logo.png"
