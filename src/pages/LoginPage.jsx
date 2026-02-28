@@ -40,13 +40,21 @@ export default function LoginPage({ onLogin }) {
     <Box
       sx={{
         minHeight: '100vh',
-        display: 'grid',
-        placeItems: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
         p: 2,
         background:
           'linear-gradient(130deg, rgba(252,180,76,0.22) 0%, rgba(252,204,116,0.2) 40%, rgba(255,250,242,1) 100%)',
       }}
     >
+      <Box
+        component="img"
+        src="/versa-logo.png"
+        alt="Versa Tours"
+        sx={{ width: { xs: 120, sm: 150 }, height: 'auto', objectFit: 'contain', mb: 1.75 }}
+      />
       <Card
         sx={{
           width: '100%',
@@ -58,9 +66,6 @@ export default function LoginPage({ onLogin }) {
         }}
       >
         <CardContent sx={{ p: 3.5 }}>
-          <Typography variant="overline" sx={{ color: 'primary.main', fontWeight: 800 }}>
-            Versa Tours
-          </Typography>
           <Typography variant="h5" fontWeight={800} gutterBottom>
             Admin Sign In
           </Typography>

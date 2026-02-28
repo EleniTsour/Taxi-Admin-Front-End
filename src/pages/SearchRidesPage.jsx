@@ -757,6 +757,7 @@ export default function SearchRidesPage() {
       setInfoMsg("Recipient email is required.");
       return;
     }
+    const includeCalendar = window.confirm("Attach a calendar invite (.ics) to this email?");
 
     try {
       const res = await authFetch(`${API_BASE}/pdf/voucher-email`, {
@@ -765,6 +766,7 @@ export default function SearchRidesPage() {
         body: JSON.stringify({
           ride,
           to: recipient,
+          includeCalendar,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -773,7 +775,9 @@ export default function SearchRidesPage() {
         throw new Error(detail);
       }
 
-      setInfoMsg(`Voucher emailed to ${recipient}.`);
+      setInfoMsg(includeCalendar
+        ? `Voucher and calendar invite emailed to ${recipient}.`
+        : `Voucher emailed to ${recipient}.`);
     } catch (err) {
       setInfoMsg(`Could not send voucher email: ${err.message}`);
     }

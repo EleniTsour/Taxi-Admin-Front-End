@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   AppBar,
-  Avatar,
   Box,
   Chip,
   Divider,
@@ -25,7 +24,6 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import AddRoadIcon from '@mui/icons-material/AddRoad';
 import SearchIcon from '@mui/icons-material/Search';
-import LocalTaxiIcon from '@mui/icons-material/LocalTaxi';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -62,13 +60,19 @@ export default function AppShell({ onLogout, mode, onToggleMode, onChangePasswor
         color: '#32251c',
       }}
     >
-      <Box sx={{ p: 2.25, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Avatar sx={{ bgcolor: '#32251c', color: '#fccc74', width: 36, height: 36 }}>
-          <LocalTaxiIcon fontSize="small" />
-        </Avatar>
-        <Typography variant="h6" fontWeight={800}>
-          Transit Ops
-        </Typography>
+      <Box sx={{ p: 1.25, pt: 1.5 }}>
+        <Box
+          component="img"
+          src="/versa-logo.png"
+          alt="Versa Tours"
+          sx={{
+            display: 'block',
+            width: '100%',
+            maxWidth: '100%',
+            height: 'auto',
+            objectFit: 'contain',
+          }}
+        />
       </Box>
 
       <Box sx={{ px: 2.25, pb: 2 }}>

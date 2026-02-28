@@ -361,7 +361,9 @@ export default function NewRidePage() {
 
   async function openPdfResponse(res) {
     if (!res.ok) {
-      throw new Error(`Voucher request failed (${res.status})`);
+      const body = await res.json().catch(() => ({}));
+      const detail = body?.detail || body?.error || `PDF request failed (${res.status})`;
+      throw new Error(detail);
     }
 
     const blob = await res.blob();
@@ -441,6 +443,36 @@ export default function NewRidePage() {
 
   async function handleSaveAndPrint() {
     await saveRide({ printPdf: true });
+  }
+
+  async function handlePrintName(includeLogo) {
+    setSuccess("");
+    setError("");
+
+    const customerName = String(form.THE_NAME ?? "").trim();
+    if (!customerName) {
+      setError("Customer Name is required to print the name PDF.");
+      return;
+    }
+
+    try {
+      const endpoint = includeLogo ? "/pdf/name-tag-logo" : "/pdf/name-tag";
+      const payload = { name: customerName };
+      if (includeLogo && typeof window !== "undefined") {
+        payload.logoUrl = `${window.location.origin}/versa-logo.png`;
+      }
+
+      const res = await authFetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      await openPdfResponse(res);
+      setSuccess(includeLogo ? "Name PDF with logo generated." : "Name PDF generated.");
+    } catch (err) {
+      setError(`Could not generate name PDF: ${err.message}`);
+    }
   }
 
   function handleClear() {
@@ -603,6 +635,48 @@ export default function NewRidePage() {
                   value={form.THE_NAME}
                   onChange={(e) => setField("THE_NAME", e.target.value)}
                 />
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  useFlexGap
+                  flexWrap="wrap"
+                  sx={{ mt: 0.25, alignItems: "center" }}
+                >
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<PictureAsPdfIcon />}
+                    onClick={() => handlePrintName(false)}
+                    disabled={!String(form.THE_NAME ?? "").trim()}
+                    sx={{
+                      minHeight: 32,
+                      px: 1.2,
+                      py: 0.25,
+                      fontSize: "0.76rem",
+                      lineHeight: 1.1,
+                      borderRadius: 1,
+                    }}
+                  >
+                    Print Name
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<PictureAsPdfIcon />}
+                    onClick={() => handlePrintName(true)}
+                    disabled={!String(form.THE_NAME ?? "").trim()}
+                    sx={{
+                      minHeight: 32,
+                      px: 1.2,
+                      py: 0.25,
+                      fontSize: "0.76rem",
+                      lineHeight: 1.1,
+                      borderRadius: 1,
+                    }}
+                  >
+                    Print Name + Logo
+                  </Button>
+                </Stack>
               </Grid>
 
               <Grid size={{  xs: 12, sm: 6, md: 4, lg: 3 }}>
