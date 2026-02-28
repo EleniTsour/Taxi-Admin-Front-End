@@ -12,8 +12,7 @@ import {
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import StorageIcon from "@mui/icons-material/Storage";
 import PriceCheckIcon from "@mui/icons-material/PriceCheck";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+import { API_BASE, authFetch } from "../lib/authApi.js";
 
 function parseFilenameFromContentDisposition(value, fallback) {
   const header = String(value ?? "");
@@ -77,7 +76,7 @@ export default function BackupsPage() {
     setInfoMsg("");
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}${path}`, { credentials: "include" });
+      const res = await authFetch(`${API_BASE}${path}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         const detail = body?.detail || body?.error || `Backup request failed (${res.status})`;

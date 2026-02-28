@@ -7,8 +7,7 @@ import AppShell from './shell/AppShell.jsx';
 import NewRidePage from './pages/NewRidePage.jsx';
 import SearchRidesPage from './pages/SearchRidesPage.jsx';
 import BackupsPage from './pages/BackupsPage.jsx';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import { API_BASE, authFetch, clearAuthToken, setAuthToken } from './lib/authApi.js';
 
 function ProtectedRoute({ isAuthed, children }) {
   if (!isAuthed) return <Navigate to="/login" replace />;
@@ -34,9 +33,12 @@ export default function App() {
 
     async function checkAuth() {
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
+        const res = await authFetch(`${API_BASE}/auth/me`);
         if (!isMounted) return;
         setIsAuthed(res.ok);
+        if (!res.ok && res.status === 401) {
+          clearAuthToken();
+        }
       } catch {
         if (!isMounted) return;
         setIsAuthed(false);
@@ -53,10 +55,9 @@ export default function App() {
 
   async function handleLogin(email, password) {
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
+      const res = await authFetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
       const body = await res.json().catch(() => ({}));
@@ -64,6 +65,7 @@ export default function App() {
         return { ok: false, error: body?.error || `Login failed (${res.status})` };
       }
 
+      setAuthToken(body?.token);
       setIsAuthed(true);
       return { ok: true };
     } catch {
@@ -73,21 +75,20 @@ export default function App() {
 
   async function handleLogout() {
     try {
-      await fetch(`${API_BASE}/auth/logout`, {
+      await authFetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
-        credentials: 'include',
       });
     } finally {
+      clearAuthToken();
       setIsAuthed(false);
     }
   }
 
   async function handleChangePassword(currentPassword, newPassword) {
     try {
-      const res = await fetch(`${API_BASE}/auth/change-password`, {
+      const res = await authFetch(`${API_BASE}/auth/change-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       const body = await res.json().catch(() => ({}));

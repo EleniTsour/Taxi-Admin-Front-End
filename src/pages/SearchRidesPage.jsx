@@ -41,8 +41,7 @@ import EmailIcon from "@mui/icons-material/Email";
 import ClearIcon from "@mui/icons-material/Clear";
 import DownloadIcon from "@mui/icons-material/Download";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+import { API_BASE, authFetch } from "../lib/authApi.js";
 
 function toDisplayDate(value) {
   const raw = String(value ?? "").trim();
@@ -308,7 +307,7 @@ export default function SearchRidesPage() {
       setOptionsError("");
 
       try {
-        const res = await fetch(`${API_BASE}/prices`, { credentials: "include" });
+        const res = await authFetch(`${API_BASE}/prices`);
         const body = await res.json().catch(() => []);
         if (!res.ok) {
           const detail = body?.detail || body?.error || `Could not load prices (${res.status})`;
@@ -338,7 +337,7 @@ export default function SearchRidesPage() {
       }
 
       try {
-        const res = await fetch(`${API_BASE}/rides/options`, { credentials: "include" });
+        const res = await authFetch(`${API_BASE}/rides/options`);
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
           const detail = body?.detail || body?.error || `Could not load drivers (${res.status})`;
@@ -405,7 +404,7 @@ export default function SearchRidesPage() {
 
     setIsLoading(true);
     try {
-      const res = await fetch(url, { credentials: "include" });
+      const res = await authFetch(url);
       const body = await res.json().catch(() => ({}));
 
       if (!res.ok) {
@@ -533,10 +532,9 @@ export default function SearchRidesPage() {
         payload.THE_DATE = apiDate;
       }
 
-      const res = await fetch(`${API_BASE}/rides/${encodeURIComponent(rowId)}`, {
+      const res = await authFetch(`${API_BASE}/rides/${encodeURIComponent(rowId)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(payload),
       });
       const body = await res.json().catch(() => ({}));
@@ -657,9 +655,8 @@ export default function SearchRidesPage() {
     setInfoMsg("");
     setIsDeletingRow(true);
     try {
-      const res = await fetch(`${API_BASE}/rides/${encodeURIComponent(rowId)}`, {
+      const res = await authFetch(`${API_BASE}/rides/${encodeURIComponent(rowId)}`, {
         method: "DELETE",
-        credentials: "include",
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -713,10 +710,9 @@ export default function SearchRidesPage() {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/pdf/voucher`, {
+      const res = await authFetch(`${API_BASE}/pdf/voucher`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(ride),
       });
       await openPdfResponse(res);
@@ -734,10 +730,9 @@ export default function SearchRidesPage() {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/pdf/vouchers`, {
+      const res = await authFetch(`${API_BASE}/pdf/vouchers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ rides: rows }),
       });
       await openPdfResponse(res);
@@ -764,10 +759,9 @@ export default function SearchRidesPage() {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/pdf/voucher-email`, {
+      const res = await authFetch(`${API_BASE}/pdf/voucher-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           ride,
           to: recipient,

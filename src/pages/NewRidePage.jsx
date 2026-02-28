@@ -27,8 +27,7 @@ import ClearIcon from "@mui/icons-material/Clear";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import dayjs from "dayjs";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+import { API_BASE, authFetch } from "../lib/authApi.js";
 
 function toApiDate(value) {
   const raw = String(value ?? "").trim();
@@ -281,7 +280,7 @@ export default function NewRidePage() {
         setPricesError("");
         setDriverOptionsError("");
 
-        const res = await fetch(`${API_BASE}/prices`, { credentials: "include" });
+        const res = await authFetch(`${API_BASE}/prices`);
         const body = await res.json().catch(() => []);
         if (!res.ok) {
           const detail = body?.detail || body?.error || `Could not load prices (${res.status})`;
@@ -297,7 +296,7 @@ export default function NewRidePage() {
       }
 
       try {
-        const res = await fetch(`${API_BASE}/rides/options`, { credentials: "include" });
+        const res = await authFetch(`${API_BASE}/rides/options`);
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
           const detail = body?.detail || body?.error || `Could not load drivers (${res.status})`;
@@ -392,10 +391,9 @@ export default function NewRidePage() {
     try {
       setIsSaving(true);
 
-      const res = await fetch(`${API_BASE}/rides`, {
+      const res = await authFetch(`${API_BASE}/rides`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           ...form,
           THE_DATE: apiDate,
@@ -416,10 +414,9 @@ export default function NewRidePage() {
 
       if (printPdf) {
         try {
-          const pdfRes = await fetch(`${API_BASE}/pdf/voucher`, {
+          const pdfRes = await authFetch(`${API_BASE}/pdf/voucher`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            credentials: "include",
             body: JSON.stringify(savedRide),
           });
           await openPdfResponse(pdfRes);
