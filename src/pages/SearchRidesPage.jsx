@@ -93,6 +93,31 @@ function toDateInputValue(value) {
   return "";
 }
 
+function toSortableDateMs(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return Number.POSITIVE_INFINITY;
+
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    return Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  }
+
+  const european = raw.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
+  if (european) {
+    return Date.UTC(Number(european[3]), Number(european[2]) - 1, Number(european[1]));
+  }
+
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : Number.POSITIVE_INFINITY;
+}
+
+function toSortableTimeMinutes(value) {
+  const raw = String(value ?? "").trim();
+  const m = raw.match(/^(\d{2}):(\d{2})/);
+  if (!m) return Number.POSITIVE_INFINITY;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
 const EXCEL_COLUMNS = [
   { key: "A/A", label: "A/A" },
   { key: "THE_DATE", label: "Date" },
@@ -818,7 +843,13 @@ export default function SearchRidesPage() {
     }
 
     const datePart = new Date().toISOString().slice(0, 10);
-    downloadXlsx(`rides_report_${datePart}_page_${page + 1}.xlsx`, rows);
+    const sortedRows = [...rows].sort((a, b) => {
+      const dateDiff = toSortableDateMs(a.THE_DATE) - toSortableDateMs(b.THE_DATE);
+      if (dateDiff !== 0) return dateDiff;
+      return toSortableTimeMinutes(a.TIME) - toSortableTimeMinutes(b.TIME);
+    });
+
+    downloadXlsx(`rides_report_${datePart}_page_${page + 1}.xlsx`, sortedRows);
     setInfoMsg(`Excel export generated for ${rows.length} ride(s) on this page.`);
   }
 

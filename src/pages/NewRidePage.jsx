@@ -20,8 +20,10 @@ import {
 import Autocomplete from "@mui/material/Autocomplete";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import LocalTaxiIcon from "@mui/icons-material/LocalTaxi";
+import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import SaveIcon from "@mui/icons-material/Save";
 import ClearIcon from "@mui/icons-material/Clear";
 import CalculateIcon from "@mui/icons-material/Calculate";
@@ -172,6 +174,53 @@ function LabeledDatePicker({ label, value, onChange }) {
             helperText: " ",
             FormHelperTextProps: { sx: { m: 0, mt: 0.5, whiteSpace: "normal" } },
             InputProps: { sx: { borderRadius: 1 } },
+          },
+        }}
+      />
+    </FormControl>
+  );
+}
+
+function LabeledTimePicker({ label, value, onChange }) {
+  const timeValueMatch = String(value ?? "").trim().match(/^(\d{2}):(\d{2})/);
+  const pickerValue = timeValueMatch
+    ? dayjs(`2000-01-01T${timeValueMatch[1]}:${timeValueMatch[2]}:00`)
+    : null;
+
+  return (
+    <FormControl fullWidth>
+      <FormLabel sx={{ fontSize: 12, mb: 0.5, color: "text.primary" }}>
+        {label}
+      </FormLabel>
+      <TimePicker
+        ampm={false}
+        format="HH:mm"
+        views={["hours", "minutes"]}
+        minutesStep={1}
+        timeSteps={{ hours: 1, minutes: 1 }}
+        value={pickerValue}
+        onChange={(newValue) => onChange(newValue && newValue.isValid() ? newValue.format("HH:mm") : "")}
+        slotProps={{
+          field: {
+            shouldRespectLeadingZeros: true,
+          },
+          textField: {
+            size: "small",
+            margin: "dense",
+            placeholder: label,
+            helperText: "24h format (HH:mm)",
+            FormHelperTextProps: { sx: { m: 0, mt: 0.5, whiteSpace: "normal" } },
+            InputProps: {
+              sx: {
+                borderRadius: 1.25,
+                bgcolor: (t) => (t.palette.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(15,76,129,0.04)"),
+              },
+              startAdornment: (
+                <InputAdornment position="start">
+                  <AccessTimeRoundedIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+            },
           },
         }}
       />
@@ -520,11 +569,10 @@ export default function NewRidePage() {
               </Grid>
 
               <Grid size={{  xs: 12, sm: 6, md: 4, lg: 3 }}>
-                <LabeledTextField
+                <LabeledTimePicker
                   label="Time"
-                  type="time"
                   value={form.TIME}
-                  onChange={(e) => setField("TIME", e.target.value)}
+                  onChange={(v) => setField("TIME", v)}
                 />
               </Grid>
 
