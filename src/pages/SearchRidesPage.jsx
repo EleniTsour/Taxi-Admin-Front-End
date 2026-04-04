@@ -33,6 +33,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { useOutletContext } from "react-router-dom";
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
 import SearchIcon from "@mui/icons-material/Search";
@@ -292,6 +293,7 @@ function LabeledAutocomplete({ label, options, value, onChange }) {
 }
 
 export default function SearchRidesPage() {
+  const { priceOptionsVersion = 0 } = useOutletContext() ?? {};
   const [filters, setFilters] = useState({
     fromDate: "",
     toDate: "",
@@ -388,7 +390,7 @@ export default function SearchRidesPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [priceOptionsVersion]);
 
   const totals = useMemo(() => {
     const count = totalRows;

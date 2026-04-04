@@ -22,6 +22,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { useOutletContext } from "react-router-dom";
 import LocalTaxiIcon from "@mui/icons-material/LocalTaxi";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import SaveIcon from "@mui/icons-material/Save";
@@ -293,6 +294,7 @@ function LabeledAutocomplete({ label, options, value, onChange, required = false
 }
 
 export default function NewRidePage() {
+  const { priceOptionsVersion = 0 } = useOutletContext() ?? {};
   const [form, setForm] = useState(EMPTY_FORM);
 
   const [success, setSuccess] = useState("");
@@ -370,7 +372,7 @@ export default function NewRidePage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [priceOptionsVersion]);
 
   const destinationOptions = useMemo(
     () =>

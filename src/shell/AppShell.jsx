@@ -29,11 +29,14 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import ArchiveIcon from '@mui/icons-material/Archive';
+import AddBusinessIcon from '@mui/icons-material/AddBusiness';
+import { API_BASE, authFetch } from '../lib/authApi.js';
 
 const drawerWidth = 248;
 
 export default function AppShell({ onLogout, mode, onToggleMode, onChangePassword }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [priceOptionsVersion, setPriceOptionsVersion] = useState(0);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -41,6 +44,11 @@ export default function AppShell({ onLogout, mode, onToggleMode, onChangePasswor
   const [passwordMsg, setPasswordMsg] = useState('');
   const [passwordMsgType, setPasswordMsgType] = useState('error');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [addTourOpen, setAddTourOpen] = useState(false);
+  const [tourName, setTourName] = useState('');
+  const [tourMsg, setTourMsg] = useState('');
+  const [tourMsgType, setTourMsgType] = useState('error');
+  const [isAddingTour, setIsAddingTour] = useState(false);
   const location = useLocation();
 
   const title = useMemo(() => {
@@ -186,6 +194,55 @@ export default function AppShell({ onLogout, mode, onToggleMode, onChangePasswor
     setPasswordOpen(false);
   }
 
+  function openAddTourDialog() {
+    setTourName('');
+    setTourMsg('');
+    setTourMsgType('error');
+    setAddTourOpen(true);
+  }
+
+  function closeAddTourDialog() {
+    if (isAddingTour) return;
+    setAddTourOpen(false);
+  }
+
+  async function submitAddTourOperator() {
+    const normalizedTour = String(tourName ?? '').replace(/\s+/g, ' ').trim();
+    setTourMsg('');
+
+    if (!normalizedTour) {
+      setTourMsgType('error');
+      setTourMsg('Tour operator name is required.');
+      return;
+    }
+
+    try {
+      setIsAddingTour(true);
+      const res = await authFetch(`${API_BASE}/prices/tours`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tour: normalizedTour }),
+      });
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setTourMsgType('error');
+        setTourMsg(body?.error || `Could not add tour operator (${res.status}).`);
+        return;
+      }
+
+      setTourName('');
+      setTourMsgType('success');
+      setTourMsg(`"${normalizedTour}" added successfully.`);
+      setPriceOptionsVersion((v) => v + 1);
+    } catch {
+      setTourMsgType('error');
+      setTourMsg('Cannot reach backend.');
+    } finally {
+      setIsAddingTour(false);
+    }
+  }
+
   async function submitChangePassword() {
     setPasswordMsg('');
 
@@ -266,6 +323,30 @@ export default function AppShell({ onLogout, mode, onToggleMode, onChangePasswor
             color="inherit"
             size="small"
             variant="outlined"
+            startIcon={<AddBusinessIcon />}
+            onClick={openAddTourDialog}
+            sx={{
+              borderColor: 'divider',
+              display: { xs: 'none', md: 'inline-flex' },
+            }}
+          >
+            Add Tour Operator
+          </Button>
+
+          <IconButton
+            color="inherit"
+            onClick={openAddTourDialog}
+            aria-label="Add tour operator"
+            title="Add tour operator"
+            sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+          >
+            <AddBusinessIcon />
+          </IconButton>
+
+          <Button
+            color="inherit"
+            size="small"
+            variant="outlined"
             startIcon={<LockResetIcon />}
             onClick={openChangePassword}
             sx={{
@@ -332,8 +413,37 @@ export default function AppShell({ onLogout, mode, onToggleMode, onChangePasswor
 
       <Box component="main" sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2.5 } }}>
         <Toolbar />
-        <Outlet />
+        <Outlet context={{ priceOptionsVersion }} />
       </Box>
+
+      <Dialog open={addTourOpen} onClose={closeAddTourDialog} fullWidth maxWidth="xs">
+        <DialogTitle>Add Tour Operator</DialogTitle>
+        <DialogContent sx={{ display: 'grid', gap: 1.25, pt: 1 }}>
+          {tourMsg ? <Alert severity={tourMsgType}>{tourMsg}</Alert> : null}
+          <TextField
+            label="Tour Operator"
+            value={tourName}
+            onChange={(e) => setTourName(e.target.value)}
+            disabled={isAddingTour}
+            autoFocus
+            helperText="This creates a new entry in the prices table so it appears in Tour Operator dropdowns."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                submitAddTourOperator();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeAddTourDialog} disabled={isAddingTour}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={submitAddTourOperator} disabled={isAddingTour}>
+            {isAddingTour ? 'Saving...' : 'Add'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={passwordOpen} onClose={closeChangePassword} fullWidth maxWidth="xs">
         <DialogTitle>Change Password</DialogTitle>
