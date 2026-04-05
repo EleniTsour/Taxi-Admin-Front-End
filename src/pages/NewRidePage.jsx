@@ -394,18 +394,18 @@ export default function NewRidePage() {
     [priceRows],
   );
 
-  // Price lookup by (Destination == TO) and (Tour == TOUR_OPER)
+  // Price lookup by (Destination == AREA) and (Tour == TOUR_OPER)
   const autoPrice = useMemo(() => {
-    if (!form.TO || !form.TOUR_OPER) return "";
+    if (!form.AREA || !form.TOUR_OPER) return "";
     const match = priceRows.find(
       (p) =>
-        String(p.destination).trim().toUpperCase() === String(form.TO).trim().toUpperCase() &&
+        String(p.destination).trim().toUpperCase() === String(form.AREA).trim().toUpperCase() &&
         String(p.tour).trim().toUpperCase() === String(form.TOUR_OPER).trim().toUpperCase()
     );
     return match ? String(match.price) : "";
-  }, [form.TO, form.TOUR_OPER, priceRows]);
+  }, [form.AREA, form.TOUR_OPER, priceRows]);
 
-  // Auto-fill PRICE when TO / TOUR_OPER changes (still allow manual override)
+  // Auto-fill PRICE when AREA / TOUR_OPER changes (still allow manual override)
   useEffect(() => {
     setForm((f) => ({ ...f, PRICE: autoPrice }));
   }, [autoPrice]);
@@ -549,7 +549,7 @@ export default function NewRidePage() {
           </Stack>
         </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Price auto-calculates from To + Tour Operator, with manual override available.
+          Price auto-calculates from <Box component="span" sx={{ fontWeight: 700 }}>Area + Tour Operator</Box>, with manual override available.
       </Typography>
       </Box>
 
@@ -760,9 +760,9 @@ export default function NewRidePage() {
                   value={form.PRICE}
                   onChange={(e) => setDecimalField("PRICE", e.target.value)} // allow override
                   helperText={
-                    form.TO && form.TOUR_OPER
-                      ? (autoPrice ? "Auto price found from To + Tour Operator." : "No match in prices table for To + Tour Operator.")
-                      : "Select To + Tour Operator to calculate Price."
+                    form.AREA && form.TOUR_OPER
+                      ? (autoPrice ? "Auto price found from Area + Tour Operator." : "No match in prices table for Area + Tour Operator.")
+                      : "Select Area + Tour Operator to calculate Price."
                   }
                   inputMode="decimal"
                   InputProps={{
