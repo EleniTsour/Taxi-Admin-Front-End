@@ -35,7 +35,6 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { useOutletContext } from "react-router-dom";
 import dayjs from "dayjs";
-import * as XLSX from "xlsx";
 import SearchIcon from "@mui/icons-material/Search";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import EmailIcon from "@mui/icons-material/Email";
@@ -93,55 +92,6 @@ function toDateInputValue(value) {
 
   return "";
 }
-
-function toSortableDateMs(value) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return Number.POSITIVE_INFINITY;
-
-  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) {
-    return Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
-  }
-
-  const european = raw.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
-  if (european) {
-    return Date.UTC(Number(european[3]), Number(european[2]) - 1, Number(european[1]));
-  }
-
-  const parsed = Date.parse(raw);
-  return Number.isFinite(parsed) ? parsed : Number.POSITIVE_INFINITY;
-}
-
-function toSortableTimeMinutes(value) {
-  const raw = String(value ?? "").trim();
-  const m = raw.match(/^(\d{2}):(\d{2})/);
-  if (!m) return Number.POSITIVE_INFINITY;
-  return Number(m[1]) * 60 + Number(m[2]);
-}
-
-const EXCEL_COLUMNS = [
-  { key: "A/A", label: "A/A" },
-  { key: "THE_DATE", label: "Date" },
-  { key: "TIME", label: "Time" },
-  { key: "TYPE", label: "Type" },
-  { key: "FROM", label: "From" },
-  { key: "TO", label: "To" },
-  { key: "HOTEL NAME", label: "Hotel Name" },
-  { key: "AREA", label: "Area" },
-  { key: "FLY_CODE", label: "Fly Code" },
-  { key: "FLY_COMPANY", label: "Fly Company" },
-  { key: "THE_NAME", label: "Customer Name" },
-  { key: "EMAIL", label: "Email" },
-  { key: "PAX", label: "Pax" },
-  { key: "ADULT", label: "Adult" },
-  { key: "CH/INF", label: "Ch/Inf" },
-  { key: "INFO", label: "Info" },
-  { key: "VCode", label: "V Code" },
-  { key: "TOUR_OPER", label: "Tour Operator" },
-  { key: "PRICE", label: "Price" },
-  { key: "DRIVER", label: "Driver" },
-  { key: "DRIVER_PRICE", label: "Driver Price" },
-];
 
 // Wider dropdown list so long values are readable
 function WidePopper(props) {
@@ -303,6 +253,10 @@ export default function SearchRidesPage() {
 
   const [rows, setRows] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [pdfExportJob, setPdfExportJob] = useState(null);
+  const [excelExportJob, setExcelExportJob] = useState(null);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
   const [totalRows, setTotalRows] = useState(0);
@@ -406,24 +360,8 @@ export default function SearchRidesPage() {
   }, [rows, selectedAA]);
 
   async function fetchRides(nextPage, nextPageSize, filtersForQuery, sortForQuery) {
-    const fromApi = filtersForQuery.fromDate ? toApiDate(filtersForQuery.fromDate) : "";
-    const toApi = filtersForQuery.toDate ? toApiDate(filtersForQuery.toDate) : "";
-    if (filtersForQuery.fromDate && !fromApi) {
-      setInfoMsg("From Date is invalid.");
-      return;
-    }
-    if (filtersForQuery.toDate && !toApi) {
-      setInfoMsg("To Date is invalid.");
-      return;
-    }
-
-    const params = new URLSearchParams();
-    if (fromApi) params.set("from", fromApi);
-    if (toApi) params.set("to", toApi);
-    if (filtersForQuery.TOUR_OPER) params.set("tour_oper", filtersForQuery.TOUR_OPER);
-    if (filtersForQuery.DRIVER) params.set("driver", filtersForQuery.DRIVER);
-    params.set("sortBy", sortForQuery.by);
-    params.set("sortDir", sortForQuery.dir);
+    const params = buildRideSearchParams(filtersForQuery, sortForQuery);
+    if (!params) return;
     params.set("page", String(nextPage + 1));
     params.set("pageSize", String(nextPageSize));
 
@@ -456,14 +394,7 @@ export default function SearchRidesPage() {
 
   async function handleSearch() {
     setInfoMsg("");
-    if (filters.fromDate && !toApiDate(filters.fromDate)) {
-      setInfoMsg("From Date is invalid.");
-      return;
-    }
-    if (filters.toDate && !toApiDate(filters.toDate)) {
-      setInfoMsg("To Date is invalid.");
-      return;
-    }
+    if (!buildRideSearchParams(filters, sort)) return;
 
     setSelectedAA(null);
     setPage(0);
@@ -719,7 +650,9 @@ export default function SearchRidesPage() {
 
   async function openPdfResponse(res) {
     if (!res.ok) {
-      throw new Error(`Voucher request failed (${res.status})`);
+      const body = await res.json().catch(() => ({}));
+      const detail = body?.detail || body?.error || `Voucher request failed (${res.status})`;
+      throw new Error(detail);
     }
 
     const blob = await res.blob();
@@ -751,21 +684,30 @@ export default function SearchRidesPage() {
 
   async function handlePdfAll() {
     setInfoMsg("");
-    if (rows.length === 0) {
+    if (totalRows === 0) {
       setInfoMsg("Run a search first and make sure there are rows to print.");
       return;
     }
 
+    setIsExportingPdf(true);
     try {
-      const res = await authFetch(`${API_BASE}/pdf/vouchers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rides: rows }),
-      });
+      const createdJob = await createExportJob("pdf");
+      if (!createdJob) return;
+      setPdfExportJob(createdJob);
+      setInfoMsg(`Your PDF export is being prepared${createdJob.resultCount ? ` (${createdJob.resultCount} rides)` : ""}.`);
+
+      const finalJob = await pollExportJob(createdJob.id, "pdf", setPdfExportJob);
+      if (finalJob.status === "failed") {
+        throw new Error(finalJob.errorMessage || "PDF export failed.");
+      }
+
+      const res = await authFetch(`${API_BASE}/exports/${encodeURIComponent(finalJob.id)}/download`);
       await openPdfResponse(res);
-      setInfoMsg(`Combined PDF generated for ${rows.length} ride(s) on this page.`);
+      setInfoMsg("Combined PDF generated for the current filtered result set.");
     } catch (err) {
       setInfoMsg(`Could not generate combined PDF: ${err.message}`);
+    } finally {
+      setIsExportingPdf(false);
     }
   }
 
@@ -810,49 +752,130 @@ export default function SearchRidesPage() {
     }
   }
 
-  function downloadXlsx(filename, rowsToExport) {
-    const header = EXCEL_COLUMNS.map((c) => c.label);
-    const priceColumnIndex = EXCEL_COLUMNS.findIndex((c) => c.key === "PRICE");
-    const totalPrice = rowsToExport.reduce((acc, row) => acc + Number(row.PRICE ?? 0), 0);
-    const dataRows = rowsToExport.map((row) => (
-      EXCEL_COLUMNS.map((c) => (
-        c.key === "THE_DATE"
-          ? toDisplayDate(row[c.key])
-          : String(row[c.key] ?? "")
-      ))
-    ));
-    const totalRow = new Array(EXCEL_COLUMNS.length).fill("");
-    if (priceColumnIndex > 0) {
-      totalRow[priceColumnIndex - 1] = "Total Price";
-    }
-    if (priceColumnIndex >= 0) {
-      totalRow[priceColumnIndex] = totalPrice.toFixed(2);
-    }
-
-    const sheet = XLSX.utils.aoa_to_sheet([header, ...dataRows, [], totalRow]);
-    sheet["!cols"] = EXCEL_COLUMNS.map((c) => ({ wch: Math.max(12, c.label.length + 2) }));
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, sheet, "Rides");
-    XLSX.writeFile(workbook, filename);
-  }
-
-  function handleExportExcel() {
+  async function handleExportExcel() {
     setInfoMsg("");
-    if (rows.length === 0) {
+    if (totalRows === 0) {
       setInfoMsg("Run a search first and make sure there are rows to export.");
       return;
     }
 
-    const datePart = new Date().toISOString().slice(0, 10);
-    const sortedRows = [...rows].sort((a, b) => {
-      const dateDiff = toSortableDateMs(a.THE_DATE) - toSortableDateMs(b.THE_DATE);
-      if (dateDiff !== 0) return dateDiff;
-      return toSortableTimeMinutes(a.TIME) - toSortableTimeMinutes(b.TIME);
-    });
+    setIsExportingExcel(true);
+    try {
+      const createdJob = await createExportJob("excel");
+      if (!createdJob) return;
+      setExcelExportJob(createdJob);
+      setInfoMsg(`Your Excel export is being prepared${createdJob.resultCount ? ` (${createdJob.resultCount} rides)` : ""}.`);
 
-    downloadXlsx(`rides_report_${datePart}_page_${page + 1}.xlsx`, sortedRows);
-    setInfoMsg(`Excel export generated for ${rows.length} ride(s) on this page.`);
+      const finalJob = await pollExportJob(createdJob.id, "excel", setExcelExportJob);
+      if (finalJob.status === "failed") {
+        throw new Error(finalJob.errorMessage || "Excel export failed.");
+      }
+
+      const res = await authFetch(`${API_BASE}/exports/${encodeURIComponent(finalJob.id)}/download`);
+      await downloadFileResponse(res, `rides_report_${new Date().toISOString().slice(0, 10)}.xls`);
+      setInfoMsg("Excel export generated for the current filtered result set.");
+    } catch (err) {
+      setInfoMsg(`Could not export Excel: ${err.message}`);
+    } finally {
+      setIsExportingExcel(false);
+    }
+  }
+
+  function buildRideSearchQuery(filtersForQuery, sortForQuery) {
+    const fromApi = filtersForQuery.fromDate ? toApiDate(filtersForQuery.fromDate) : "";
+    const toApi = filtersForQuery.toDate ? toApiDate(filtersForQuery.toDate) : "";
+    if (filtersForQuery.fromDate && !fromApi) {
+      setInfoMsg("From Date is invalid.");
+      return null;
+    }
+    if (filtersForQuery.toDate && !toApi) {
+      setInfoMsg("To Date is invalid.");
+      return null;
+    }
+
+    const query = {};
+    if (fromApi) query.from = fromApi;
+    if (toApi) query.to = toApi;
+    if (filtersForQuery.TOUR_OPER) query.tour_oper = filtersForQuery.TOUR_OPER;
+    if (filtersForQuery.DRIVER) query.driver = filtersForQuery.DRIVER;
+    query.sortBy = sortForQuery.by;
+    query.sortDir = sortForQuery.dir;
+    return query;
+  }
+
+  function buildRideSearchParams(filtersForQuery, sortForQuery) {
+    const query = buildRideSearchQuery(filtersForQuery, sortForQuery);
+    if (!query) return null;
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      params.set(key, String(value));
+    });
+    return params;
+  }
+
+  async function createExportJob(type) {
+    const query = buildRideSearchQuery(activeFilters, activeSort);
+    if (!query) return null;
+
+    const res = await authFetch(`${API_BASE}/exports`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, query }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = body?.detail || body?.error || `Export request failed (${res.status})`;
+      throw new Error(detail);
+    }
+    return body;
+  }
+
+  async function pollExportJob(jobId, type, setJobState) {
+    for (;;) {
+      const res = await authFetch(`${API_BASE}/exports/${encodeURIComponent(jobId)}`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = body?.detail || body?.error || `Could not check export status (${res.status})`;
+        throw new Error(detail);
+      }
+
+      setJobState(body);
+      if (body.status === "completed" || body.status === "failed") {
+        return body;
+      }
+
+      setInfoMsg(
+        body.status === "processing"
+          ? `Your ${type === "pdf" ? "PDF" : "Excel"} export is being prepared.`
+          : `Your ${type === "pdf" ? "PDF" : "Excel"} export is queued.`
+      );
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+    }
+  }
+
+  async function downloadFileResponse(res, fallbackFilename) {
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const detail = body?.detail || body?.error || `Export request failed (${res.status})`;
+      throw new Error(detail);
+    }
+
+    const blob = await res.blob();
+    const header = String(res.headers.get("Content-Disposition") ?? "");
+    const utf8Name = header.match(/filename\*=UTF-8''([^;]+)/i);
+    const asciiName = header.match(/filename=\"?([^\";]+)\"?/i);
+    const filename = utf8Name
+      ? decodeURIComponent(utf8Name[1])
+      : (asciiName?.[1] || fallbackFilename);
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
   function renderSortableHeader(label, field, align = "left") {
@@ -1006,11 +1029,27 @@ export default function SearchRidesPage() {
             <Button size="small" variant="outlined" startIcon={<EmailIcon />} onClick={() => handleEmailPdf()}>
               Email Selected PDF
             </Button>
-            <Button size="small" variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={handlePdfAll}>
-              Print All PDFs
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PictureAsPdfIcon />}
+              onClick={handlePdfAll}
+              disabled={isExportingPdf}
+            >
+              {isExportingPdf
+                ? (pdfExportJob?.status === "pending" ? "Queueing PDF..." : "Preparing PDFs...")
+                : "Print All PDFs"}
             </Button>
-            <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportExcel}>
-              Export Excel
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={handleExportExcel}
+              disabled={isExportingExcel}
+            >
+              {isExportingExcel
+                ? (excelExportJob?.status === "pending" ? "Queueing Excel..." : "Preparing Excel...")
+                : "Export Excel"}
             </Button>
             <Button
               size="medium"
