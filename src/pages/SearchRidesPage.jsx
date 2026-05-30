@@ -270,14 +270,14 @@ export default function SearchRidesPage() {
   const [tourOperOptions, setTourOperOptions] = useState([]);
   const [driverOptions, setDriverOptions] = useState([]);
   const [destinationOptions, setDestinationOptions] = useState([]);
-  const [sort, setSort] = useState({ by: "THE_DATE", dir: "desc" });
+  const [sort, setSort] = useState({ by: "THE_DATE", dir: "asc" });
   const [activeFilters, setActiveFilters] = useState({
     fromDate: "",
     toDate: "",
     TOUR_OPER: "",
     DRIVER: "",
   });
-  const [activeSort, setActiveSort] = useState({ by: "THE_DATE", dir: "desc" });
+  const [activeSort, setActiveSort] = useState({ by: "THE_DATE", dir: "asc" });
   const [selectedAA, setSelectedAA] = useState(null);
 
   useEffect(() => {
@@ -439,7 +439,7 @@ export default function SearchRidesPage() {
     setEditingAA(null);
     setEditDraft(null);
     const clearedFilters = { fromDate: "", toDate: "", TOUR_OPER: "", DRIVER: "" };
-    const defaultSort = { by: "THE_DATE", dir: "desc" };
+    const defaultSort = { by: "THE_DATE", dir: "asc" };
     setActiveFilters(clearedFilters);
     setFilters(clearedFilters);
     setSort(defaultSort);
@@ -772,7 +772,7 @@ export default function SearchRidesPage() {
       }
 
       const res = await authFetch(`${API_BASE}/exports/${encodeURIComponent(finalJob.id)}/download`);
-      await downloadFileResponse(res, `rides_report_${new Date().toISOString().slice(0, 10)}.xls`);
+      await downloadFileResponse(res, `rides_report_${new Date().toISOString().slice(0, 10)}.xlsx`);
       setInfoMsg("Excel export generated for the current filtered result set.");
     } catch (err) {
       setInfoMsg(`Could not export Excel: ${err.message}`);
@@ -1215,7 +1215,7 @@ export default function SearchRidesPage() {
           onPageChange={handleChangePage}
           rowsPerPage={pageSize}
           onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[25, 50, 100, 200]}
+          rowsPerPageOptions={[25, 50, 100, 200, 500]}
           labelRowsPerPage="Rows per page"
           sx={{ mt: 0.5 }}
         />
