@@ -7,7 +7,7 @@ import AppShell from './shell/AppShell.jsx';
 import NewRidePage from './pages/NewRidePage.jsx';
 import SearchRidesPage from './pages/SearchRidesPage.jsx';
 import BackupsPage from './pages/BackupsPage.jsx';
-import { API_BASE, authFetch, clearAuthToken, setAuthToken } from './lib/authApi.js';
+import { API_BASE, authFetch, refreshCsrfToken } from './lib/authApi.js';
 
 function ProtectedRoute({ isAuthed, children }) {
   if (!isAuthed) return <Navigate to="/login" replace />;
@@ -35,10 +35,8 @@ export default function App() {
       try {
         const res = await authFetch(`${API_BASE}/auth/me`);
         if (!isMounted) return;
+        if (res.ok) await refreshCsrfToken();
         setIsAuthed(res.ok);
-        if (!res.ok && res.status === 401) {
-          clearAuthToken();
-        }
       } catch {
         if (!isMounted) return;
         setIsAuthed(false);
@@ -65,7 +63,7 @@ export default function App() {
         return { ok: false, error: body?.error || `Login failed (${res.status})` };
       }
 
-      setAuthToken(body?.token);
+      await refreshCsrfToken();
       setIsAuthed(true);
       return { ok: true };
     } catch {
@@ -79,7 +77,6 @@ export default function App() {
         method: 'POST',
       });
     } finally {
-      clearAuthToken();
       setIsAuthed(false);
     }
   }

@@ -509,10 +509,6 @@ export default function NewRidePage() {
     try {
       const endpoint = includeLogo ? "/pdf/name-tag-logo" : "/pdf/name-tag";
       const payload = { name: customerName };
-      if (includeLogo && typeof window !== "undefined") {
-        payload.logoUrl = `${window.location.origin}/versa-logo.png`;
-      }
-
       const res = await authFetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
