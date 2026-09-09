@@ -93,6 +93,16 @@ function toDateInputValue(value) {
   return "";
 }
 
+function createDefaultFilters() {
+  const today = dayjs().format("YYYY-MM-DD");
+  return {
+    fromDate: today,
+    toDate: today,
+    TOUR_OPER: "",
+    DRIVER: "",
+  };
+}
+
 // Wider dropdown list so long values are readable
 function WidePopper(props) {
   const { anchorEl, style } = props;
@@ -244,12 +254,7 @@ function LabeledAutocomplete({ label, options, value, onChange }) {
 
 export default function SearchRidesPage() {
   const { priceOptionsVersion = 0 } = useOutletContext() ?? {};
-  const [filters, setFilters] = useState({
-    fromDate: "",
-    toDate: "",
-    TOUR_OPER: "",
-    DRIVER: "",
-  });
+  const [filters, setFilters] = useState(createDefaultFilters);
 
   const [rows, setRows] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -271,12 +276,7 @@ export default function SearchRidesPage() {
   const [driverOptions, setDriverOptions] = useState([]);
   const [destinationOptions, setDestinationOptions] = useState([]);
   const [sort, setSort] = useState({ by: "THE_DATE", dir: "asc" });
-  const [activeFilters, setActiveFilters] = useState({
-    fromDate: "",
-    toDate: "",
-    TOUR_OPER: "",
-    DRIVER: "",
-  });
+  const [activeFilters, setActiveFilters] = useState(createDefaultFilters);
   const [activeSort, setActiveSort] = useState({ by: "THE_DATE", dir: "asc" });
   const [selectedAA, setSelectedAA] = useState(null);
 
@@ -879,7 +879,7 @@ export default function SearchRidesPage() {
   }
 
   function renderSortableHeader(label, field, align = "left") {
-    const sortable = ["A/A", "THE_DATE", "TIME"].includes(field);
+    const sortable = ["A/A", "THE_DATE", "TIME", "TOUR_OPER"].includes(field);
     if (!sortable) {
       return <TableCell align={align}>{label}</TableCell>;
     }
