@@ -22,6 +22,10 @@ export async function refreshCsrfToken() {
   return csrfToken;
 }
 
+export function clearCsrfToken() {
+  csrfToken = "";
+}
+
 export async function authFetch(url, options = {}) {
   const headers = new Headers(options.headers ?? {});
   const method = String(options.method ?? "GET").toUpperCase();

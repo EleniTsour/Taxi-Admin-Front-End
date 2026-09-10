@@ -253,7 +253,7 @@ function LabeledAutocomplete({ label, options, value, onChange }) {
 }
 
 export default function SearchRidesPage() {
-  const { priceOptionsVersion = 0 } = useOutletContext() ?? {};
+  const { isAuthenticated = false, priceOptionsVersion = 0 } = useOutletContext() ?? {};
   const [filters, setFilters] = useState(createDefaultFilters);
 
   const [rows, setRows] = useState([]);
@@ -281,6 +281,8 @@ export default function SearchRidesPage() {
   const [selectedAA, setSelectedAA] = useState(null);
 
   useEffect(() => {
+    if (!isAuthenticated) return undefined;
+
     let isMounted = true;
 
     async function loadFilterOptions() {
@@ -344,7 +346,7 @@ export default function SearchRidesPage() {
     return () => {
       isMounted = false;
     };
-  }, [priceOptionsVersion]);
+  }, [isAuthenticated, priceOptionsVersion]);
 
   const totals = useMemo(() => {
     const count = totalRows;

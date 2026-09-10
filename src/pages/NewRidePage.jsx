@@ -294,7 +294,7 @@ function LabeledAutocomplete({ label, options, value, onChange, required = false
 }
 
 export default function NewRidePage() {
-  const { priceOptionsVersion = 0 } = useOutletContext() ?? {};
+  const { isAuthenticated = false, priceOptionsVersion = 0 } = useOutletContext() ?? {};
   const [form, setForm] = useState(EMPTY_FORM);
 
   const [success, setSuccess] = useState("");
@@ -324,6 +324,8 @@ export default function NewRidePage() {
   }
 
   useEffect(() => {
+    if (!isAuthenticated) return undefined;
+
     let isMounted = true;
 
     async function loadOptions() {
@@ -372,7 +374,7 @@ export default function NewRidePage() {
     return () => {
       isMounted = false;
     };
-  }, [priceOptionsVersion]);
+  }, [isAuthenticated, priceOptionsVersion]);
 
   const destinationOptions = useMemo(
     () =>

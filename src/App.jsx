@@ -7,7 +7,7 @@ import AppShell from './shell/AppShell.jsx';
 import NewRidePage from './pages/NewRidePage.jsx';
 import SearchRidesPage from './pages/SearchRidesPage.jsx';
 import BackupsPage from './pages/BackupsPage.jsx';
-import { API_BASE, authFetch, refreshCsrfToken } from './lib/authApi.js';
+import { API_BASE, authFetch, clearCsrfToken, refreshCsrfToken } from './lib/authApi.js';
 
 function ProtectedRoute({ isAuthed, children }) {
   if (!isAuthed) return <Navigate to="/login" replace />;
@@ -34,9 +34,13 @@ export default function App() {
     async function checkAuth() {
       try {
         const res = await authFetch(`${API_BASE}/auth/me`);
-        if (!isMounted) return;
-        if (res.ok) await refreshCsrfToken();
-        setIsAuthed(res.ok);
+        if (!res.ok || !isMounted) {
+          if (isMounted) setIsAuthed(false);
+          return;
+        }
+
+        await refreshCsrfToken();
+        if (isMounted) setIsAuthed(true);
       } catch {
         if (!isMounted) return;
         setIsAuthed(false);
@@ -77,6 +81,7 @@ export default function App() {
         method: 'POST',
       });
     } finally {
+      clearCsrfToken();
       setIsAuthed(false);
     }
   }
@@ -247,6 +252,7 @@ export default function App() {
           element={
             <ProtectedRoute isAuthed={isAuthed}>
               <AppShell
+                isAuthenticated={isAuthed}
                 mode={mode}
                 onToggleMode={() => setMode((m) => (m === 'light' ? 'dark' : 'light'))}
                 onLogout={handleLogout}

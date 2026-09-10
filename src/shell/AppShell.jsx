@@ -34,7 +34,7 @@ import { API_BASE, authFetch } from '../lib/authApi.js';
 
 const drawerWidth = 248;
 
-export default function AppShell({ onLogout, mode, onToggleMode, onChangePassword }) {
+export default function AppShell({ isAuthenticated, onLogout, mode, onToggleMode, onChangePassword }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [priceOptionsVersion, setPriceOptionsVersion] = useState(0);
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -413,7 +413,7 @@ export default function AppShell({ onLogout, mode, onToggleMode, onChangePasswor
 
       <Box component="main" sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2.5 } }}>
         <Toolbar />
-        <Outlet context={{ priceOptionsVersion }} />
+        <Outlet context={{ isAuthenticated, priceOptionsVersion }} />
       </Box>
 
       <Dialog open={addTourOpen} onClose={closeAddTourDialog} fullWidth maxWidth="xs">
