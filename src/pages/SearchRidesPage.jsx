@@ -100,6 +100,7 @@ function createDefaultFilters() {
     toDate: today,
     TOUR_OPER: "",
     DRIVER: "",
+    customerName: "",
   };
 }
 
@@ -796,10 +797,12 @@ export default function SearchRidesPage() {
     }
 
     const query = {};
+    const customerName = String(filtersForQuery.customerName ?? "").trim();
     if (fromApi) query.from = fromApi;
     if (toApi) query.to = toApi;
     if (filtersForQuery.TOUR_OPER) query.tour_oper = filtersForQuery.TOUR_OPER;
     if (filtersForQuery.DRIVER) query.driver = filtersForQuery.DRIVER;
+    if (customerName) query.customer_name = customerName;
     query.sortBy = sortForQuery.by;
     query.sortDir = sortForQuery.dir;
     return query;
@@ -923,7 +926,7 @@ export default function SearchRidesPage() {
               Search Rides
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Filter by date range, operator and driver.
+              Filter by date range, operator, driver and customer name.
             </Typography>
           </Stack>
           <Chip label="Reporting Mode" size="small" color="secondary" />
@@ -974,6 +977,26 @@ export default function SearchRidesPage() {
                 value={filters.DRIVER}
                 onChange={(v) => setFilters((f) => ({ ...f, DRIVER: v }))}
               />
+            </Box>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 4, md: 4, lg: 2 }} sx={{ display: "flex" }}>
+            <Box sx={{ width: { xs: "min(100%, 320px)", sm: "100%" } }}>
+              <FormControl fullWidth>
+                <FormLabel sx={{ fontSize: 12, mb: 0.5, color: "text.primary" }}>
+                  Customer Name
+                </FormLabel>
+                <TextField
+                  size="small"
+                  margin="dense"
+                  placeholder="Customer Name"
+                  value={filters.customerName}
+                  onChange={(event) => setFilters((f) => ({ ...f, customerName: event.target.value }))}
+                  InputProps={{ sx: { borderRadius: 1 } }}
+                  helperText=" "
+                  FormHelperTextProps={{ sx: { m: 0, mt: 0.5, whiteSpace: "normal" } }}
+                />
+              </FormControl>
             </Box>
           </Grid>
 
