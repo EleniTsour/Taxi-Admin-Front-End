@@ -7,7 +7,7 @@ import AppShell from './shell/AppShell.jsx';
 import NewRidePage from './pages/NewRidePage.jsx';
 import SearchRidesPage from './pages/SearchRidesPage.jsx';
 import BackupsPage from './pages/BackupsPage.jsx';
-import { API_BASE, authFetch, clearAuthToken, setAuthToken } from './lib/authApi.js';
+import { API_BASE, authFetch, clearCsrfToken, refreshCsrfToken } from './lib/authApi.js';
 
 function ProtectedRoute({ isAuthed, children }) {
   if (!isAuthed) return <Navigate to="/login" replace />;
@@ -36,13 +36,14 @@ export default function App() {
         const res = await authFetch(`${API_BASE}/auth/me`);
         if (!res.ok || !isMounted) {
           if (isMounted) {
-            if (res.status === 401) clearAuthToken();
+            clearCsrfToken();
             setIsAuthed(false);
           }
           return;
         }
 
-        setIsAuthed(true);
+        const csrfToken = await refreshCsrfToken();
+        if (isMounted) setIsAuthed(Boolean(csrfToken));
       } catch {
         if (!isMounted) return;
         setIsAuthed(false);
@@ -69,11 +70,10 @@ export default function App() {
         return { ok: false, error: body?.error || `Login failed (${res.status})` };
       }
 
-      if (!String(body?.token ?? '').trim()) {
-        return { ok: false, error: 'Login response did not include an access token.' };
+      const csrfToken = await refreshCsrfToken();
+      if (!csrfToken) {
+        return { ok: false, error: 'Could not initialize the secure session.' };
       }
-
-      setAuthToken(body.token);
       setIsAuthed(true);
       return { ok: true };
     } catch {
@@ -87,7 +87,7 @@ export default function App() {
         method: 'POST',
       });
     } finally {
-      clearAuthToken();
+      clearCsrfToken();
       setIsAuthed(false);
     }
   }
