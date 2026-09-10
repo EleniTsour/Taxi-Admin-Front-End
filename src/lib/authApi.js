@@ -1,38 +1,30 @@
 export const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
-let csrfToken = "";
+const AUTH_TOKEN_KEY = "taxi_admin_token";
 
-function getCsrfToken() {
-  if (csrfToken) return csrfToken;
-  if (typeof document === "undefined") return "";
-  return document.cookie
-    .split(";")
-    .map((cookie) => cookie.trim())
-    .find((cookie) => cookie.startsWith("csrf_token="))
-    ?.slice("csrf_token=".length) ?? "";
+export function getAuthToken() {
+  if (typeof window === "undefined") return "";
+  return String(window.localStorage.getItem(AUTH_TOKEN_KEY) ?? "");
 }
 
-export async function refreshCsrfToken() {
-  const res = await fetch(`${API_BASE}/auth/csrf`, { credentials: "include" });
-  if (!res.ok) {
-    csrfToken = "";
-    return "";
+export function setAuthToken(token) {
+  if (typeof window === "undefined") return;
+  const value = String(token ?? "").trim();
+  if (!value) {
+    window.localStorage.removeItem(AUTH_TOKEN_KEY);
+    return;
   }
-  const body = await res.json().catch(() => ({}));
-  csrfToken = String(body?.token ?? "");
-  return csrfToken;
+  window.localStorage.setItem(AUTH_TOKEN_KEY, value);
 }
 
-export function clearCsrfToken() {
-  csrfToken = "";
+export function clearAuthToken() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
 }
 
 export async function authFetch(url, options = {}) {
+  const token = getAuthToken();
   const headers = new Headers(options.headers ?? {});
-  const method = String(options.method ?? "GET").toUpperCase();
-  if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
-    const csrfToken = getCsrfToken();
-    if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
-  }
+  if (token) headers.set("Authorization", `Bearer ${token}`);
   return fetch(url, {
     credentials: "include",
     ...options,
