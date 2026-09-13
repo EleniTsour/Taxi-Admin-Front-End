@@ -1,5 +1,5 @@
 ﻿// src/pages/SearchRidesPage.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Chip,
@@ -280,6 +280,11 @@ export default function SearchRidesPage() {
   const [activeFilters, setActiveFilters] = useState(createDefaultFilters);
   const [activeSort, setActiveSort] = useState({ by: "THE_DATE", dir: "asc" });
   const [selectedAA, setSelectedAA] = useState(null);
+  const searchRequestRef = useRef({ id: 0, controller: null });
+
+  useEffect(() => () => {
+    searchRequestRef.current.controller?.abort();
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) return undefined;
@@ -369,11 +374,17 @@ export default function SearchRidesPage() {
     params.set("pageSize", String(nextPageSize));
 
     const url = `${API_BASE}/rides/search?${params.toString()}`;
+    const requestId = searchRequestRef.current.id + 1;
+    searchRequestRef.current.controller?.abort();
+    const controller = new AbortController();
+    searchRequestRef.current = { id: requestId, controller };
 
     setIsLoading(true);
     try {
-      const res = await authFetch(url);
+      const res = await authFetch(url, { signal: controller.signal });
       const body = await res.json().catch(() => ({}));
+
+      if (requestId !== searchRequestRef.current.id) return;
 
       if (!res.ok) {
         const detail = body?.detail || body?.error || `Search request failed (${res.status})`;
@@ -389,9 +400,10 @@ export default function SearchRidesPage() {
       setEditDraft(null);
       setInfoMsg(`Loaded ${nextRows.length} ride(s) on this page. Total matches: ${nextTotal}.`);
     } catch (err) {
+      if (err?.name === "AbortError" || requestId !== searchRequestRef.current.id) return;
       setInfoMsg(`Could not load rides: ${err.message}`);
     } finally {
-      setIsLoading(false);
+      if (requestId === searchRequestRef.current.id) setIsLoading(false);
     }
   }
 
@@ -434,6 +446,10 @@ export default function SearchRidesPage() {
   }
 
   function handleClear() {
+    searchRequestRef.current.id += 1;
+    searchRequestRef.current.controller?.abort();
+    searchRequestRef.current.controller = null;
+    setIsLoading(false);
     setInfoMsg("");
     setRows([]);
     setTotalRows(0);
@@ -441,7 +457,7 @@ export default function SearchRidesPage() {
     setSelectedAA(null);
     setEditingAA(null);
     setEditDraft(null);
-    const clearedFilters = { fromDate: "", toDate: "", TOUR_OPER: "", DRIVER: "" };
+    const clearedFilters = { fromDate: "", toDate: "", TOUR_OPER: "", DRIVER: "", customerName: "" };
     const defaultSort = { by: "THE_DATE", dir: "asc" };
     setActiveFilters(clearedFilters);
     setFilters(clearedFilters);
