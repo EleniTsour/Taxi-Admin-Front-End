@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -20,6 +20,7 @@ import {
   DialogActions,
   TextField,
   Alert,
+  Collapse,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import AddRoadIcon from '@mui/icons-material/AddRoad';
@@ -30,6 +31,10 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import AddBusinessIcon from '@mui/icons-material/AddBusiness';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { API_BASE, authFetch } from '../lib/authApi.js';
 
 const drawerWidth = 248;
@@ -50,10 +55,17 @@ export default function AppShell({ isAuthenticated, onLogout, mode, onToggleMode
   const [tourMsgType, setTourMsgType] = useState('error');
   const [isAddingTour, setIsAddingTour] = useState(false);
   const location = useLocation();
+  const [financeOpen, setFinanceOpen] = useState(() => location.pathname.startsWith('/finance'));
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/finance')) setFinanceOpen(true);
+  }, [location.pathname]);
 
   const title = useMemo(() => {
     if (location.pathname.includes('/rides/new')) return 'New Ride';
     if (location.pathname.includes('/rides/search')) return 'Search Rides';
+    if (location.pathname.includes('/finance/new')) return 'Add Finance Entry';
+    if (location.pathname.includes('/finance/search')) return 'Finance Search';
     if (location.pathname.includes('/backups')) return 'Backups';
     return 'Taxi Admin';
   }, [location.pathname]);
@@ -140,6 +152,43 @@ export default function AppShell({ isAuthenticated, onLogout, mode, onToggleMode
           </ListItemIcon>
           <ListItemText primary="Search / Reports" />
         </ListItemButton>
+
+        <ListItemButton
+          onClick={() => setFinanceOpen((open) => !open)}
+          sx={{
+            borderRadius: 0.5,
+            color: '#32251c',
+            '& .MuiListItemIcon-root': { color: '#32251c' },
+            '&.active': { bgcolor: 'rgba(50,37,28,0.16)' },
+          }}
+        >
+          <ListItemIcon><AccountBalanceWalletIcon /></ListItemIcon>
+          <ListItemText primary="Finance" />
+          {financeOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </ListItemButton>
+        <Collapse in={financeOpen} timeout="auto" unmountOnExit>
+          <List component="div" disablePadding>
+            <ListItemButton
+              component={NavLink}
+              to="/finance/new"
+              onClick={() => setMobileOpen(false)}
+              sx={{
+                pl: 4.5,
+                borderRadius: 0.5,
+                color: '#32251c',
+                '& .MuiListItemIcon-root': { color: '#32251c' },
+                '&.active': { bgcolor: 'rgba(50,37,28,0.16)', color: '#22180f', '& .MuiListItemIcon-root': { color: '#22180f' } },
+              }}
+            >
+              <ListItemIcon><AddCircleOutlineIcon fontSize="small" /></ListItemIcon>
+              <ListItemText primary="Add New" />
+            </ListItemButton>
+            <ListItemButton component={NavLink} to="/finance/search" onClick={() => setMobileOpen(false)} sx={{ pl: 4.5, borderRadius: 0.5, color: '#32251c', '& .MuiListItemIcon-root': { color: '#32251c' }, '&.active': { bgcolor: 'rgba(50,37,28,0.16)', color: '#22180f', '& .MuiListItemIcon-root': { color: '#22180f' } } }}>
+              <ListItemIcon><SearchIcon fontSize="small" /></ListItemIcon>
+              <ListItemText primary="Search" />
+            </ListItemButton>
+          </List>
+        </Collapse>
 
         <ListItemButton
           component={NavLink}
@@ -411,7 +460,7 @@ export default function AppShell({ isAuthenticated, onLogout, mode, onToggleMode
         </Drawer>
       </Box>
 
-      <Box component="main" sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2.5 } }}>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 1.5, sm: 2.5 } }}>
         <Toolbar />
         <Outlet context={{ isAuthenticated, priceOptionsVersion }} />
       </Box>

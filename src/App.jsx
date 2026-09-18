@@ -7,6 +7,8 @@ import AppShell from './shell/AppShell.jsx';
 import NewRidePage from './pages/NewRidePage.jsx';
 import SearchRidesPage from './pages/SearchRidesPage.jsx';
 import BackupsPage from './pages/BackupsPage.jsx';
+import NewFinancePage from './pages/NewFinancePage.jsx';
+import SearchFinancePage from './pages/SearchFinancePage.jsx';
 import { API_BASE, authFetch, clearCsrfToken, refreshCsrfToken } from './lib/authApi.js';
 
 function ProtectedRoute({ isAuthed, children }) {
@@ -104,7 +106,9 @@ export default function App() {
         return { ok: false, error: body?.error || `Change password failed (${res.status})` };
       }
 
-      return { ok: true };
+      clearCsrfToken();
+      setIsAuthed(false);
+      return { ok: true, sessionRevoked: true };
     } catch {
       return { ok: false, error: 'Cannot reach backend.' };
     }
@@ -270,6 +274,8 @@ export default function App() {
           <Route index element={<Navigate to="/rides/new" replace />} />
           <Route path="rides/new" element={<NewRidePage />} />
           <Route path="rides/search" element={<SearchRidesPage />} />
+          <Route path="finance/new" element={<NewFinancePage />} />
+          <Route path="finance/search" element={<SearchFinancePage />} />
           <Route path="backups" element={<BackupsPage />} />
         </Route>
 

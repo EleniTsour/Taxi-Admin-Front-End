@@ -884,7 +884,7 @@ export default function SearchRidesPage() {
     const blob = await res.blob();
     const header = String(res.headers.get("Content-Disposition") ?? "");
     const utf8Name = header.match(/filename\*=UTF-8''([^;]+)/i);
-    const asciiName = header.match(/filename=\"?([^\";]+)\"?/i);
+    const asciiName = header.match(/filename="?([^";]+)"?/i);
     const filename = utf8Name
       ? decodeURIComponent(utf8Name[1])
       : (asciiName?.[1] || fallbackFilename);

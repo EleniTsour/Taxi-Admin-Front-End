@@ -1,0 +1,25 @@
+@media (max-width: 599.95px) {
+  .finance-search-filters + .MuiPaper-root > .MuiStack-root {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .finance-search-filters + .MuiPaper-root > .MuiStack-root > .MuiButton-root {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+  }
+
+  .finance-search-filters ~ .MuiPaper-root .MuiTableCell-alignCenter > .MuiStack-root {
+    align-items: center;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 279.95px) {
+  .finance-search-filters + .MuiPaper-root > .MuiStack-root {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

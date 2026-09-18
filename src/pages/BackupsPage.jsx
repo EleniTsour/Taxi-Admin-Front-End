@@ -12,6 +12,7 @@ import {
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import StorageIcon from "@mui/icons-material/Storage";
 import PriceCheckIcon from "@mui/icons-material/PriceCheck";
+import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import { API_BASE, authFetch } from "../lib/authApi.js";
 
 function parseFilenameFromContentDisposition(value, fallback) {
@@ -70,6 +71,7 @@ function BackupCard({
 export default function BackupsPage() {
   const [isDownloadingData, setIsDownloadingData] = useState(false);
   const [isDownloadingPrices, setIsDownloadingPrices] = useState(false);
+  const [isDownloadingFinance, setIsDownloadingFinance] = useState(false);
   const [infoMsg, setInfoMsg] = useState("");
 
   async function downloadBackupCsv(path, fallbackFilename, successLabel, setLoading) {
@@ -125,6 +127,16 @@ export default function BackupsPage() {
     );
   }
 
+  async function handleBackupFinance() {
+    const datePart = new Date().toISOString().slice(0, 10);
+    await downloadBackupCsv(
+      "/finance/backup.csv",
+      `finance_backup_${datePart}.csv`,
+      "Finance",
+      setIsDownloadingFinance,
+    );
+  }
+
   return (
     <Box sx={{ maxWidth: 1080, mx: "auto", px: { xs: 0, sm: 1 }, py: 1 }}>
       <Paper
@@ -147,7 +159,7 @@ export default function BackupsPage() {
               Backups
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Download full CSV backups for operational and pricing tables.
+              Download full CSV backups for operational, pricing, and Finance tables.
             </Typography>
           </Stack>
           <Chip size="small" label="Data Safety" color="secondary" />
@@ -175,6 +187,16 @@ export default function BackupsPage() {
             buttonLabel="Download Prices Backup"
             onClick={handleBackupPrices}
             isLoading={isDownloadingPrices}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <BackupCard
+            icon={<AccountBalanceWalletIcon color="primary" />}
+            title="Backup Finance CSV"
+            description="Exports all persisted Finance records, including Tour Operator, date, charge, payment, and notes."
+            buttonLabel="Download Finance Backup"
+            onClick={handleBackupFinance}
+            isLoading={isDownloadingFinance}
           />
         </Grid>
       </Grid>

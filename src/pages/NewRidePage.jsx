@@ -12,14 +12,10 @@ import {
   Stack,
   TextField,
   Typography,
-  Popper,
-  Tooltip,
   FormControl,
   FormLabel,
 } from "@mui/material";
-import Autocomplete from "@mui/material/Autocomplete";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { useOutletContext } from "react-router-dom";
@@ -31,6 +27,7 @@ import CalculateIcon from "@mui/icons-material/Calculate";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import dayjs from "dayjs";
 import { API_BASE, authFetch } from "../lib/authApi.js";
+import { LabeledAutocomplete, LabeledDatePicker, LabeledTextField } from "../components/FormFields.jsx";
 
 function toApiDate(value) {
   const raw = String(value ?? "").trim();
@@ -80,30 +77,6 @@ const EMPTY_FORM = {
   DRIVER_PRICE: "",
 };
 
-// Wider dropdown list so long options are readable
-function WidePopper(props) {
-  const { anchorEl, style } = props;
-  const minWidth = anchorEl?.clientWidth ?? 280;
-  const maxWidth = typeof window !== "undefined" ? window.innerWidth - 24 : 960;
-  return (
-    <Popper
-      {...props}
-      placement="bottom-start"
-      style={{ ...style }}
-      sx={{
-        "& .MuiAutocomplete-paper": {
-          minWidth,
-          width: "max-content",
-          maxWidth,
-        },
-        "& .MuiAutocomplete-listbox": {
-          maxWidth,
-        },
-      }}
-    />
-  );
-}
-
 // Flat section wrapper (less rounded)
 function Section({ title, subtitle, children }) {
   return (
@@ -131,54 +104,6 @@ function Section({ title, subtitle, children }) {
       <Divider sx={{ mb: 1.25 }} />
       {children}
     </Paper>
-  );
-}
-
-// Label always ABOVE input (like your screenshot)
-function LabeledTextField({ label, helperText, InputProps, ...props }) {
-  return (
-    <FormControl fullWidth>
-      <FormLabel sx={{ fontSize: 12, mb: 0.5, color: "text.primary" }}>
-        {label}
-      </FormLabel>
-      <TextField
-        size="small"
-        margin="dense"
-        placeholder={label}
-        helperText={helperText ?? " "}
-        FormHelperTextProps={{ sx: { m: 0, mt: 0.5, whiteSpace: "normal" } }}
-        InputProps={{
-          sx: { borderRadius: 1 },
-          ...InputProps,
-        }}
-        {...props}
-      />
-    </FormControl>
-  );
-}
-
-function LabeledDatePicker({ label, value, onChange }) {
-  return (
-    <FormControl fullWidth>
-      <FormLabel sx={{ fontSize: 12, mb: 0.5, color: "text.primary" }}>
-        {label}
-      </FormLabel>
-      <DatePicker
-        format="DD-MM-YYYY"
-        value={value ? dayjs(value) : null}
-        onChange={(newValue) => onChange(newValue && newValue.isValid() ? newValue.format("YYYY-MM-DD") : "")}
-        slotProps={{
-          textField: {
-            size: "small",
-            margin: "dense",
-            placeholder: label,
-            helperText: " ",
-            FormHelperTextProps: { sx: { m: 0, mt: 0.5, whiteSpace: "normal" } },
-            InputProps: { sx: { borderRadius: 1 } },
-          },
-        }}
-      />
-    </FormControl>
   );
 }
 
@@ -224,70 +149,6 @@ function LabeledTimePicker({ label, value, onChange }) {
             },
           },
         }}
-      />
-    </FormControl>
-  );
-}
-
-// Label always ABOVE + dropdown that shows FULL selected value under field + tooltip
-function LabeledAutocomplete({ label, options, value, onChange, required = false }) {
-  const full = value || "";
-
-  return (
-    <FormControl fullWidth>
-      <FormLabel sx={{ fontSize: 12, mb: 0.5, color: "text.primary" }}>
-        {label}
-      </FormLabel>
-
-      <Autocomplete
-        fullWidth
-        freeSolo
-        PopperComponent={WidePopper}
-        options={options}
-        value={value || null}
-        onChange={(_, v) => onChange(typeof v === "string" ? v : (v ?? ""))}
-        onInputChange={(_, inputValue, reason) => {
-          if (reason === "input" || reason === "clear") {
-            onChange(inputValue ?? "");
-          }
-        }}
-        slotProps={{
-          paper: { sx: { mt: 0.5 } },
-        }}
-        renderOption={(props, option) => {
-          const { key, ...optionProps } = props;
-          return (
-            <li key={key} {...optionProps} style={{ whiteSpace: "normal", alignItems: "flex-start" }}>
-              <span style={{ display: "block", lineHeight: 1.25 }}>{option}</span>
-            </li>
-          );
-        }}
-        renderInput={(params) => (
-          <Tooltip title={full ? full : ""} placement="top" arrow disableHoverListener={!full}>
-            <TextField
-              {...params}
-              required={required}
-              size="small"
-              margin="dense"
-              placeholder={label}
-              // prevents "..." and allows scroll for long selected values
-              inputProps={{
-                ...params.inputProps,
-                style: {
-                  overflowX: "auto",
-                  textOverflow: "clip",
-                  whiteSpace: "nowrap",
-                },
-              }}
-              InputProps={{
-                ...params.InputProps,
-                sx: { borderRadius: 1 },
-              }}
-              helperText={full ? full : " "}
-              FormHelperTextProps={{ sx: { m: 0, mt: 0.5, whiteSpace: "normal" } }}
-            />
-          </Tooltip>
-        )}
       />
     </FormControl>
   );
